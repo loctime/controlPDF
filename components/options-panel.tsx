@@ -6,10 +6,17 @@ import { cn } from "@/lib/utils"
 
 interface OptionsPanelProps {
   selectedTool: string
+  onOptionsChange?: (options: any) => void
 }
 
-export function OptionsPanel({ selectedTool }: OptionsPanelProps) {
+export function OptionsPanel({ selectedTool, onOptionsChange }: OptionsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [keepBookmarks, setKeepBookmarks] = useState(true)
+
+  const handleKeepBookmarksChange = (value: boolean) => {
+    setKeepBookmarks(value)
+    onOptionsChange?.({ keepBookmarks: value })
+  }
 
   const getToolOptions = () => {
     switch (selectedTool) {
@@ -18,7 +25,12 @@ export function OptionsPanel({ selectedTool }: OptionsPanelProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-sm text-foreground">Mantener marcadores</label>
-              <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" defaultChecked />
+              <input 
+                type="checkbox" 
+                className="h-4 w-4 rounded border-input accent-primary" 
+                checked={keepBookmarks}
+                onChange={(e) => handleKeepBookmarksChange(e.target.checked)}
+              />
             </div>
           </div>
         )

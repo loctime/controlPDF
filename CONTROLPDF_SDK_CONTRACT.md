@@ -1,24 +1,34 @@
-📦 ControlPDF SDK — Public Contract (v1)
+📦 ControlPDF SDK — Public Contract v1 (Merge-Only)
 
-Estado: Draft estable
-Propósito: Definir el contrato público del SDK de ControlPDF para procesamiento de PDFs reutilizable por todas las apps de la plataforma ControlFile (ControlAudit, ControlDoc, etc.).
+Status: Production Ready
+Purpose: Define the public contract of ControlPDF SDK v1 for PDF processing, reusable by all ControlFile platform apps (ControlAudit, ControlDoc, etc.).
 
-1. Principios del SDK
+## Contract Scope
 
-El SDK de ControlPDF NO procesa PDFs directamente
+**ControlPDF SDK v1 is MERGE-ONLY**
 
-El SDK NO guarda archivos
+- ✅ **Available in v1**: `merge()` operation
+- 🔄 **Planned / v2+**: split, compress, convert, rotate, protect, unlock, sign, ocr
+- 🔄 **Planned / v2+**: Asynchronous job processing with status tracking
 
-El SDK NO conoce Firestore, Backblaze ni el storage
+---
 
-El SDK define QUÉ se puede hacer, no CÓMO
+1. SDK Principles
 
-El SDK es agnóstico de la app cliente
+The ControlPDF SDK does NOT process PDFs directly
 
-👉 Es un contrato de capacidades, no una implementación.
+The SDK does NOT store files
 
-2. Tipos base
-2.1 Contexto de ejecución (obligatorio)
+The SDK does NOT know about Firestore, Backblaze, or storage
+
+The SDK defines WHAT can be done, not HOW
+
+The SDK is client-app agnostic
+
+👉 It's a capabilities contract, not an implementation.
+
+2. Base Types
+2.1 Execution Context (Required)
 ControlPDFContext {
   app: string                // controlpdf | controlaudit | controldoc | etc.
   userId: string
@@ -27,37 +37,39 @@ ControlPDFContext {
   correlationId?: string
 }
 
+This context is used for:
 
-Este contexto se usa para:
-
-auditoría
+auditing
 
 ownership
 
-trazabilidad
+traceability
 
-versionado
+versioning
 
-métricas
+metrics
 
-2.2 Entrada de archivo
+2.2 File Input
 PDFInput {
-  fileId?: string            // Archivo existente en ControlFile
-  file?: File | Blob         // Archivo nuevo (upload)
+  fileId?: string            // Existing file in ControlFile
+  file?: File | Blob         // New file (upload) - NOT SUPPORTED in v1
   name?: string
 }
 
+**v1 Input Constraints:**
+- ✅ Supported: `fileId` for existing ControlFile files
+- ❌ NOT Supported: `file` / Blob uploads (planned for v2+)
 
-Regla:
-Debe existir fileId o file, nunca ambos.
+Rule:
+Must have either fileId or file, never both.
 
-2.3 Resultado estándar
+2.3 Standard Result
 
-Todas las operaciones devuelven este tipo (o un array del mismo).
+All operations return this type (or array of it).
 
 PDFResult {
   jobId: string
-  status: "queued" | "processing" | "completed" | "failed"
+  status: "completed" | "failed"    // v1 is synchronous only
   resultFileId?: string
   resultFileName?: string
   pages?: number
@@ -65,8 +77,12 @@ PDFResult {
   warnings?: string[]
 }
 
-3. Operaciones públicas
-3.1 Unir PDFs
+**v1 Job Handling:**
+- ✅ Synchronous processing: status is always "completed" or "failed"
+- 🔄 `getJobStatus()` and `cancelJob()` planned for v2+ async processing
+
+3. Available Operations (v1)
+3.1 Merge PDFs
 merge(
   inputs: PDFInput[],
   options?: {
@@ -75,12 +91,19 @@ merge(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
+Requires minimum 2 PDFs
 
-Requiere mínimo 2 PDFs
+Respects input order
 
-Respeta el orden de inputs
+**v1 Input Support:**
+- ✅ PDFInput with `fileId` only
+- ❌ PDFInput with `file`/Blob not supported
 
-3.2 Dividir PDF
+4. Planned Operations (v2+)
+
+The following operations are planned for future versions and are NOT available in v1:
+
+4.1 Split PDF
 split(
   input: PDFInput,
   options: {
@@ -92,10 +115,9 @@ split(
   context: ControlPDFContext
 ): Promise<PDFResult[]>
 
+Returns multiple files.
 
-Devuelve múltiples archivos.
-
-3.3 Comprimir PDF
+4.2 Compress PDF
 compress(
   input: PDFInput,
   options: {
@@ -104,7 +126,7 @@ compress(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
-3.4 Convertir PDF
+4.3 Convert PDF
 convert(
   input: PDFInput,
   options: {
@@ -113,7 +135,7 @@ convert(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
-3.5 Rotar páginas
+4.4 Rotate Pages
 rotate(
   input: PDFInput,
   options: {
@@ -123,10 +145,9 @@ rotate(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
+If no pages specified, rotates all.
 
-Si no se especifican páginas, rota todas.
-
-3.6 Proteger PDF (contraseña)
+4.5 Protect PDF (Password)
 protect(
   input: PDFInput,
   options: {
@@ -137,7 +158,7 @@ protect(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
-3.7 Quitar protección
+4.6 Remove Protection
 unlock(
   input: PDFInput,
   options: {
@@ -146,7 +167,7 @@ unlock(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
-3.8 Firmar PDF
+4.7 Sign PDF
 sign(
   input: PDFInput,
   options: {
@@ -159,7 +180,7 @@ sign(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
-3.9 OCR (reconocimiento de texto)
+4.8 OCR (Text Recognition)
 ocr(
   input: PDFInput,
   options: {
@@ -169,14 +190,14 @@ ocr(
   context: ControlPDFContext
 ): Promise<PDFResult>
 
-4. Gestión de trabajos (Jobs)
-4.1 Consultar estado
+5. Job Management (Planned for v2+)
+5.1 Check Status
 getJobStatus(jobId: string): Promise<PDFResult>
 
-4.2 Cancelar trabajo
+5.2 Cancel Job
 cancelJob(jobId: string): Promise<void>
 
-5. Errores estándar
+6. Standard Errors
 ControlPDFError {
   code:
     | "INVALID_INPUT"
@@ -187,56 +208,68 @@ ControlPDFError {
   message: string
 }
 
-6. Exclusiones explícitas del SDK
+7. Explicit SDK Exclusions
 
-El SDK de ControlPDF NO define:
+The ControlPDF SDK does NOT define:
 
-Dónde se almacenan los archivos
+Where files are stored
 
-Cómo se versionan
+How they are versioned
 
-Qué backend los procesa
+Which backend processes them
 
-Qué librerías PDF se utilizan
+Which PDF libraries are used
 
-Reglas de permisos o billing
+Permission or billing rules
 
-Todo eso pertenece a:
+All of that belongs to:
 
 ControlPDF Backend
 
 ControlFile Core
 
-7. Relación con la UI
+8. Relationship with UI
 
-Mapeo directo con la UI actual:
+Direct mapping with current UI:
 
-selectedTool → método del SDK
+selectedTool → SDK method (merge only in v1)
 
 files[] → PDFInput[]
 
 OptionsPanel → options
 
-Botón Procesar PDF → llamada al SDK
+Process PDF button → SDK call
 
-Botón Guardar en ControlFile → flujo posterior (no SDK)
+Save to ControlFile button → Post-flow (not SDK)
 
-8. Estado del contrato
+9. Contract Status
 
-✔ Estable
+✔ Production Ready (v1)
 
-✔ Reutilizable
+✔ Stable
 
-✔ Agnóstico de backend
+✔ Reusable
 
-✔ Compatible con ControlFile
+✔ Backend Agnostic
 
-✔ Apto para validación con Codex
+✔ ControlFile Compatible
 
-9. Versionado
+✔ Ready for Codex Validation
 
-Versión inicial: v1
+10. Version Roadmap
 
-Cambios futuros deben ser retrocompatibles
+**v1 (Current) - Merge-Only**
+- ✅ PDF merge operation with fileId input
+- ✅ Synchronous processing
+- ✅ Production-ready backend implementation
 
-Nuevas operaciones se agregan sin romper firmas existentes
+**v2 (Planned) - Full PDF Operations**
+- 🔄 All planned operations (split, compress, convert, rotate, protect, unlock, sign, ocr)
+- 🔄 File upload support (file/Blob inputs)
+- 🔄 Asynchronous job processing with status tracking
+- 🔄 Job management APIs (getJobStatus, cancelJob)
+
+**Versioning Policy:**
+- Current version: v1 (Merge-Only)
+- Future changes must be backward compatible
+- New operations will be added without breaking existing signatures

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import {
   Layers,
   Scissors,
@@ -11,12 +11,17 @@ import {
   PenTool,
   ScanText,
   FileText,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react"
 import { ToolCard } from "@/components/tool-card"
 import { DropZone } from "@/components/drop-zone"
 import { FileList, type FileItem } from "@/components/file-list"
 import { OptionsPanel } from "@/components/options-panel"
 import { Button } from "@/components/ui/button"
+import { controlPDFService, type MergeRequest } from "@/lib/controlpdf-api"
+import { firebaseAuthService, type User } from "@/lib/firebase-auth"
 
 const tools = [
   { id: "merge", label: "Unir PDF", icon: Layers },
@@ -33,14 +38,22 @@ export default function PDFToolsPage() {
   const [selectedTool, setSelectedTool] = useState("merge")
   const [files, setFiles] = useState<FileItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [mergeOptions, setMergeOptions] = useState({ keepBookmarks: true })
+  const [result, setResult] = useState<{ fileId: string; fileName: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleFilesAdded = useCallback((newFiles: File[]) => {
     const fileItems: FileItem[] = newFiles.map((file) => ({
       id: crypto.randomUUID(),
       file,
+      fileName: file.name,
       pages: Math.floor(Math.random() * 20) + 1, // Simulado - en producción usarías pdf.js
     }))
     setFiles((prev) => [...prev, ...fileItems])
+    setError(null)
+    setResult(null)
   }, [])
 
   const handleRemoveFile = useCallback((id: string) => {
@@ -49,6 +62,70 @@ export default function PDFToolsPage() {
 
   const handleReorderFiles = useCallback((newFiles: FileItem[]) => {
     setFiles(newFiles)
+  }, [])
+
+  const handleProcessPDF = useCallback(async () => {
+    if (selectedTool !== "merge") return
+    
+    // Validar que haya al menos 2 archivos
+    if (files.length < 2) {
+      setError("Se requieren al menos 2 archivos para fusionar")
+      return
+    }
+
+    // Validar que todos los archivos tengan fileId
+    const filesWithoutFileId = files.filter(f => !f.fileId)
+    if (filesWithoutFileId.length > 0) {
+      setError("Todos los archivos deben tener un fileId de ControlFile")
+      return
+    }
+
+    // Validar que haya usuario autenticado
+    if (!user) {
+      setError("Debes estar autenticado para procesar PDFs")
+      return
+    }
+
+    setIsProcessing(true)
+    setError(null)
+    setResult(null)
+
+    try {
+      const idToken = await firebaseAuthService.getIdToken()
+      if (!idToken) {
+        throw new Error("No se pudo obtener el token de autenticación")
+      }
+
+      const mergeRequest: MergeRequest = {
+        inputs: files.map(f => ({ fileId: f.fileId! })),
+        options: mergeOptions,
+        context: {
+          app: "controlpdf",
+          userId: user.uid,
+          ownerId: user.uid, // Asumimos que el ownerId es el mismo userId
+          source: "ui",
+        },
+      }
+
+      const mergeResult = await controlPDFService.mergePDFs(mergeRequest, idToken)
+      setResult({
+        fileId: mergeResult.resultFileId,
+        fileName: mergeResult.resultFileName,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al procesar los PDFs")
+    } finally {
+      setIsProcessing(false)
+    }
+  }, [selectedTool, files, user, mergeOptions])
+
+  // Efecto para manejar la autenticación
+  useEffect(() => {
+    const unsubscribe = firebaseAuthService.onAuthStateChanged((user) => {
+      setUser(user)
+    })
+
+    return unsubscribe
   }, [])
 
   const getToolName = () => {
@@ -112,19 +189,69 @@ export default function PDFToolsPage() {
         {/* Options Panel */}
         {files.length > 0 && (
           <section className="mb-6">
-            <OptionsPanel selectedTool={selectedTool} />
+            <OptionsPanel 
+              selectedTool={selectedTool} 
+              onOptionsChange={setMergeOptions}
+            />
           </section>
         )}
 
         {/* Action Buttons */}
         {files.length > 0 && (
-          <section className="flex flex-col sm:flex-row gap-3">
-            <Button size="lg" className="flex-1">
-              {getToolName()}
-            </Button>
-            <Button size="lg" variant="outline" className="flex-1 sm:flex-none bg-transparent">
-              Guardar en ControlFile
-            </Button>
+          <section className="flex flex-col gap-4">
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {result && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <div className="flex-1">
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    PDF fusionado exitosamente: {result.fileName}
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    FileId: {result.fileId}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* User Authentication Status */}
+            {!user && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
+                <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  Debes estar autenticado para procesar PDFs
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                size="lg" 
+                className="flex-1"
+                onClick={handleProcessPDF}
+                disabled={isProcessing || selectedTool !== "merge" || !user || files.length < 2}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  getToolName()
+                )}
+              </Button>
+              <Button size="lg" variant="outline" className="flex-1 sm:flex-none bg-transparent">
+                Guardar en ControlFile
+              </Button>
+            </div>
           </section>
         )}
       </div>

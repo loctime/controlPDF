@@ -8,8 +8,10 @@ import { cn } from "@/lib/utils"
 
 export interface FileItem {
   id: string
-  file: File
+  file?: File
+  fileId?: string
   pages: number
+  fileName: string
 }
 
 interface FileListProps {
@@ -83,11 +85,11 @@ export function FileList({ files, onRemove, onReorder }: FileListProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">
-                {item.file.name}
+                {item.fileName}
               </p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{formatFileSize(item.file.size)}</span>
-                <span>•</span>
+                {item.file && <span>{formatFileSize(item.file.size)}</span>}
+                {item.file && <span>•</span>}
                 <span>{item.pages} {item.pages === 1 ? "página" : "páginas"}</span>
               </div>
             </div>
