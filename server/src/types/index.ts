@@ -31,26 +31,32 @@ export interface ErrorResponse {
 }
 
 export interface ControlFilePresignRequest {
-  fileName: string;
-  contentType: string;
-  metadata?: Record<string, string>;
+  fileName?: string;
+  name?: string;
+  fileSize?: number;
+  size?: number;
+  mimeType?: string;
+  mime?: string;
 }
 
 export interface ControlFilePresignResponse {
+  uploadSessionId: string;
   uploadUrl: string;
-  fileId: string;
+  fileKey: string;
 }
 
 export interface ControlFileConfirmRequest {
-  fileId: string;
-  metadata?: Record<string, string>;
+  uploadSessionId: string;
+  etag?: string;
+  parts?: Array<{ partNumber: number; etag: string }>;
 }
 
 export interface ControlFileConfirmResponse {
   fileId: string;
-  success: boolean;
 }
 
 export interface ControlFileDownloadResponse {
   downloadUrl: string;
+  fileName: string;
+  fileSize: number;
 }

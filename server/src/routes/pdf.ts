@@ -79,41 +79,25 @@ router.post("/merge", async (req: AuthenticatedRequest, res: Response) => {
     const presignResponse = await controlFileClient.getUploadUrl(
       {
         fileName: "merged.pdf",
-        contentType: "application/pdf",
-        metadata: {
-          operation: "merge",
-          sourceApp: body.context.app,
-          inputFileIds: JSON.stringify(body.inputs.map((i) => i.fileId)),
-          jobId: jobId,
-          userId: userId,
-          ownerId: body.context.ownerId,
-          source: body.context.source || "api",
-          correlationId: body.context.correlationId || "",
-        },
+        fileSize: mergeResult.pdfBytes.length,
+        mimeType: "application/pdf",
       },
       authToken
     );
 
     // Paso 6: Subir el PDF fusionado
     const pdfBuffer = Buffer.from(mergeResult.pdfBytes);
-    await controlFileClient.uploadFile(
+    const uploadEtag = await controlFileClient.uploadFile(
       presignResponse.uploadUrl,
       pdfBuffer,
       "application/pdf"
     );
 
     // Paso 7: Confirmar la subida
-    await controlFileClient.confirmUpload(
+    const confirmResponse = await controlFileClient.confirmUpload(
       {
-        fileId: presignResponse.fileId,
-        metadata: {
-          operation: "merge",
-          sourceApp: body.context.app,
-          inputFileIds: JSON.stringify(body.inputs.map((i) => i.fileId)),
-          jobId: jobId,
-          pages: mergeResult.pages.toString(),
-          size: pdfBuffer.length.toString(),
-        },
+        uploadSessionId: presignResponse.uploadSessionId,
+        etag: uploadEtag,
       },
       authToken
     );
@@ -122,7 +106,7 @@ router.post("/merge", async (req: AuthenticatedRequest, res: Response) => {
     const response: MergeResponse = {
       jobId: jobId,
       status: "completed",
-      resultFileId: presignResponse.fileId,
+      resultFileId: confirmResponse.fileId,
       resultFileName: "merged.pdf",
       pages: mergeResult.pages,
       size: pdfBuffer.length,

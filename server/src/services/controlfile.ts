@@ -36,11 +36,13 @@ export class ControlFileClient {
     token: string
   ): Promise<string> {
     try {
-      const response = await this.client.get<ControlFileDownloadResponse>(
-        `/api/files/${fileId}/download`,
+      const response = await this.client.post<ControlFileDownloadResponse>(
+        "/api/files/presign-get",
+        { fileId },
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         }
       );
@@ -132,14 +134,16 @@ export class ControlFileClient {
     uploadUrl: string,
     fileBuffer: Buffer,
     contentType: string
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     try {
-      await axios.put(uploadUrl, fileBuffer, {
+      const response = await axios.put(uploadUrl, fileBuffer, {
         headers: {
           "Content-Type": contentType,
         },
         timeout: 120000, // 2 minutos para subidas grandes
       });
+      const etagHeader = response.headers?.etag;
+      return typeof etagHeader === "string" ? etagHeader : undefined;
     } catch (error: any) {
       throw new ControlPDFError(
         "PROCESSING_FAILED",
