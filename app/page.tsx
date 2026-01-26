@@ -14,14 +14,17 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  LogOut,
 } from "lucide-react"
 import { ToolCard } from "@/components/tool-card"
 import { DropZone } from "@/components/drop-zone"
 import { FileList, type FileItem } from "@/components/file-list"
 import { OptionsPanel } from "@/components/options-panel"
+import { AuthGuard } from "@/components/auth-guard"
 import { Button } from "@/components/ui/button"
 import { controlPDFService, type MergeRequest } from "@/lib/controlpdf-api"
 import { firebaseAuthService, type User } from "@/lib/firebase-auth"
+import { firestoreUserService } from "@/lib/firestore-user"
 
 const tools = [
   { id: "merge", label: "Unir PDF", icon: Layers },
@@ -119,14 +122,30 @@ export default function PDFToolsPage() {
     }
   }, [selectedTool, files, user, mergeOptions])
 
-  // Efecto para manejar la autenticación
+  // Efecto para manejar la autenticación y guardar metadata
   useEffect(() => {
-    const unsubscribe = firebaseAuthService.onAuthStateChanged((user) => {
+    const unsubscribe = firebaseAuthService.onAuthStateChanged(async (user) => {
       setUser(user)
+      
+      // Guardar metadata en Firestore cuando el usuario inicia sesión
+      if (user) {
+        try {
+          await firestoreUserService.updateUserLogin(user, 'unknown')
+        } catch (error) {
+          console.error('Error saving user metadata:', error)
+        }
+      }
     })
 
     return unsubscribe
   }, [])
+
+  const handleSignOut = async () => {
+    const result = await firebaseAuthService.signOut()
+    if (result.error) {
+      console.error('Error signing out:', result.error.message)
+    }
+  }
 
   const getToolName = () => {
     const tool = tools.find((t) => t.id === selectedTool)
@@ -134,22 +153,38 @@ export default function PDFToolsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
-        {/* Header */}
-        <header className="text-center mb-8 md:mb-12">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary">
-              <FileText className="h-5 w-5 text-primary-foreground" />
+    <AuthGuard>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
+          {/* Header */}
+          <header className="text-center mb-8 md:mb-12">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary">
+                <FileText className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+                Herramientas PDF
+              </h1>
             </div>
-            <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-              Herramientas PDF
-            </h1>
-          </div>
-          <p className="text-muted-foreground">
-            Todas las herramientas que necesitas para trabajar con archivos PDF
-          </p>
-        </header>
+            <p className="text-muted-foreground mb-4">
+              Todas las herramientas que necesitas para trabajar con archivos PDF
+            </p>
+            
+            {/* User info and sign out */}
+            {user && (
+              <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                <span>Signed in as {user.email}</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleSignOut}
+                  className="h-auto p-1"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </header>
 
         {/* Tool Grid */}
         <section className="mb-8 md:mb-10">
@@ -253,8 +288,8 @@ export default function PDFToolsPage() {
               </Button>
             </div>
           </section>
-        )}
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   )
-}
+} 
