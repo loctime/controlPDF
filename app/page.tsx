@@ -288,6 +288,7 @@ export default function PDFToolsPage() {
               </Button>
             </div>
           </section>
+        )}
         </div>
       </div>
     </AuthGuard>
