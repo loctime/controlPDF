@@ -1,51 +1,33 @@
 # ControlPDF
 
-Aplicación web para manipulación y procesamiento de archivos PDF.
+Herramientas PDF que corren 100% en el navegador. Sin login, sin subir archivos a ningún servidor.
 
-## Características
+## Funcionalidades
 
-- 🔗 **Unir PDFs**: Combina múltiples archivos PDF en uno solo
-- ✂️ **Dividir PDF**: Separa un PDF en múltiples archivos
-- 📦 **Comprimir PDF**: Reduce el tamaño de archivos PDF
-- 🔄 **Convertir PDF**: Convierte PDFs a otros formatos (JPG, PNG, DOCX, etc.)
-- 🔃 **Rotar PDF**: Rota páginas de documentos PDF
-- 🔒 **Proteger PDF**: Añade contraseña y restricciones a PDFs
-- ✍️ **Firmar PDF**: Añade firmas digitales a documentos
-- 📝 **OCR PDF**: Reconocimiento óptico de caracteres en PDFs
+- 🔗 **Unir PDF** — combiná varios PDFs en uno (orden por drag & drop)
+- ✂️ **Dividir PDF** — extraé páginas o rangos como archivos separados
+- 🔃 **Rotar PDF** — girá el documento 90°, 180° o 270°
 
-## Tecnologías
+Próximamente: comprimir, convertir, proteger, firmar, OCR.
 
-- **Next.js 16** - Framework React
-- **TypeScript** - Tipado estático
-- **Tailwind CSS** - Estilos
-- **Radix UI** - Componentes UI accesibles
-- **React Hook Form** - Manejo de formularios
+## Stack
 
-## Instalación
-
-```bash
-pnpm install
-```
+- **Next.js 16** + **React 19** + **TypeScript**
+- **Tailwind CSS v4** + **Radix UI** + **Sonner**
+- **pdf-lib** para procesamiento client-side
 
 ## Desarrollo
 
 ```bash
+pnpm install
 pnpm dev
 ```
 
-La aplicación estará disponible en [http://localhost:3000](http://localhost:3000)
+La app queda en [http://localhost:3000](http://localhost:3000).
 
-## Construcción
+## Build
 
 ```bash
 pnpm build
 pnpm start
 ```
-
-## SDK Contract
-
-Ver [CONTROLPDF_SDK_CONTRACT.md](./CONTROLPDF_SDK_CONTRACT.md) para la especificación del contrato público del SDK.
-
-## Licencia
-
-Privado

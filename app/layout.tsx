@@ -1,44 +1,31 @@
 import React from "react"
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
-import './globals.css'
-
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+import type { Metadata } from "next"
+import { Analytics } from "@vercel/analytics/next"
+import { Toaster } from "@/components/ui/sonner"
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'Herramientas PDF - Unir, Dividir, Comprimir y más',
-  description: 'Plataforma profesional de herramientas PDF. Une, divide, comprime, convierte, rota, protege, firma y aplica OCR a tus archivos PDF.',
-  generator: 'v0.app',
+  title: "Herramientas PDF — Unir, Dividir, Rotar y más",
+  description:
+    "Trabajá con archivos PDF directamente desde tu navegador: unir, dividir, rotar. Rápido, gratis y sin enviar tus archivos a ningún servidor.",
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
+      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/icon.svg", type: "image/svg+xml" },
     ],
-    apple: '/apple-icon.png',
+    apple: "/apple-icon.png",
   },
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es">
-      <body className={`font-sans antialiased`}>
+      <body className="font-sans antialiased">
         {children}
+        <Toaster richColors position="top-center" />
         <Analytics />
       </body>
     </html>

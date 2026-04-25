@@ -1,8 +1,6 @@
 "use client"
 
-import React from "react"
-
-import { useCallback } from "react"
+import React, { useCallback } from "react"
 import { Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -10,15 +8,23 @@ interface DropZoneProps {
   onFilesAdded: (files: File[]) => void
   isDragging: boolean
   setIsDragging: (dragging: boolean) => void
+  multiple?: boolean
+  hint?: string
 }
 
-export function DropZone({ onFilesAdded, isDragging, setIsDragging }: DropZoneProps) {
+export function DropZone({
+  onFilesAdded,
+  isDragging,
+  setIsDragging,
+  multiple = true,
+  hint,
+}: DropZoneProps) {
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(true)
     },
-    [setIsDragging]
+    [setIsDragging],
   )
 
   const handleDragLeave = useCallback(
@@ -26,32 +32,29 @@ export function DropZone({ onFilesAdded, isDragging, setIsDragging }: DropZonePr
       e.preventDefault()
       setIsDragging(false)
     },
-    [setIsDragging]
+    [setIsDragging],
   )
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(false)
-      const files = Array.from(e.dataTransfer.files).filter(
-        (file) => file.type === "application/pdf"
+      const dropped = Array.from(e.dataTransfer.files).filter(
+        (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
       )
-      if (files.length > 0) {
-        onFilesAdded(files)
-      }
+      if (dropped.length === 0) return
+      onFilesAdded(multiple ? dropped : dropped.slice(0, 1))
     },
-    [onFilesAdded, setIsDragging]
+    [onFilesAdded, setIsDragging, multiple],
   )
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files ? Array.from(e.target.files) : []
-      if (files.length > 0) {
-        onFilesAdded(files)
-      }
+      const picked = e.target.files ? Array.from(e.target.files) : []
+      if (picked.length > 0) onFilesAdded(multiple ? picked : picked.slice(0, 1))
       e.target.value = ""
     },
-    [onFilesAdded]
+    [onFilesAdded, multiple],
   )
 
   return (
@@ -62,35 +65,36 @@ export function DropZone({ onFilesAdded, isDragging, setIsDragging }: DropZonePr
       className={cn(
         "relative flex flex-col items-center justify-center gap-4 p-12 rounded-xl border-2 border-dashed transition-all duration-300",
         "bg-card hover:border-primary/50 cursor-pointer",
-        isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-border"
+        isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-border",
       )}
     >
       <input
         type="file"
-        accept=".pdf"
-        multiple
+        accept="application/pdf,.pdf"
+        multiple={multiple}
         onChange={handleFileInput}
         className="absolute inset-0 opacity-0 cursor-pointer"
+        aria-label="Seleccionar archivos PDF"
       />
       <div
         className={cn(
           "flex items-center justify-center w-16 h-16 rounded-full transition-colors",
-          isDragging ? "bg-primary/10" : "bg-muted"
+          isDragging ? "bg-primary/10" : "bg-muted",
         )}
       >
         <Upload
           className={cn(
             "h-8 w-8 transition-colors",
-            isDragging ? "text-primary" : "text-muted-foreground"
+            isDragging ? "text-primary" : "text-muted-foreground",
           )}
         />
       </div>
       <div className="text-center">
         <p className="text-lg font-medium text-foreground">
-          Arrastra tus archivos PDF aquí
+          {multiple ? "Arrastra tus archivos PDF aquí" : "Arrastra un archivo PDF aquí"}
         </p>
         <p className="text-sm text-muted-foreground mt-1">
-          o haz clic para seleccionar
+          {hint ?? "o haz clic para seleccionar"}
         </p>
       </div>
     </div>
