@@ -19,6 +19,7 @@ import type { FileItem } from "@/components/file-list"
 import { MergePanel } from "@/components/tools/merge-panel"
 import { SplitPanel } from "@/components/tools/split-panel"
 import { RotatePanel } from "@/components/tools/rotate-panel"
+import { ConvertPanel } from "@/components/tools/convert-panel"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
 
 type ToolId =
@@ -75,11 +76,11 @@ const TOOLS: Tool[] = [
   },
   {
     id: "convert",
-    label: "Convertir",
+    label: "PDF a imagen",
     icon: RefreshCw,
-    available: false,
+    available: true,
     multiple: false,
-    description: "Convertí PDFs a otros formatos.",
+    description: "Convertí cada página en una imagen JPG o PNG.",
   },
   {
     id: "protect",
@@ -262,6 +263,9 @@ export default function PDFToolsPage() {
         {selectedTool === "merge" && <MergePanel key="merge" {...panelProps} />}
         {selectedTool === "split" && <SplitPanel key="split" {...panelProps} />}
         {selectedTool === "rotate" && <RotatePanel key="rotate" {...panelProps} />}
+        {selectedTool === "convert" && (
+          <ConvertPanel key="convert" {...panelProps} />
+        )}
       </div>
     </div>
   )

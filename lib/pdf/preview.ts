@@ -57,6 +57,56 @@ export async function getPageCount(file: File): Promise<number> {
   return doc.numPages
 }
 
+export interface RenderPageOptions {
+  scale?: number
+  rotation?: number
+  width?: number
+}
+
+export async function renderPageToCanvas(
+  file: File,
+  pageNumber: number,
+  options: RenderPageOptions = {},
+): Promise<HTMLCanvasElement> {
+  const doc = await getDoc(file)
+  const page = await doc.getPage(pageNumber)
+  const rotation = options.rotation ?? 0
+  const baseViewport = page.getViewport({ scale: 1, rotation })
+  const scale =
+    options.scale ?? (options.width ? options.width / baseViewport.width : 1)
+  const viewport = page.getViewport({ scale, rotation })
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.ceil(viewport.width)
+  canvas.height = Math.ceil(viewport.height)
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("No 2D canvas context")
+  await page.render({ canvasContext: ctx, viewport }).promise
+  return canvas
+}
+
+export async function renderPageToBlob(
+  file: File,
+  pageNumber: number,
+  options: RenderPageOptions & {
+    format?: "image/jpeg" | "image/png"
+    quality?: number
+  } = {},
+): Promise<Blob> {
+  const canvas = await renderPageToCanvas(file, pageNumber, options)
+  const format = options.format ?? "image/jpeg"
+  const quality = options.quality ?? 0.92
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error("No se pudo generar la imagen"))
+      },
+      format,
+      quality,
+    )
+  })
+}
+
 export interface ThumbnailOptions {
   width?: number
   rotation?: number
@@ -74,17 +124,7 @@ export async function renderThumbnail(
   const cached = thumbCache.get(key)
   if (cached) return cached
 
-  const doc = await getDoc(file)
-  const page = await doc.getPage(pageNumber)
-  const baseViewport = page.getViewport({ scale: 1, rotation })
-  const scale = width / baseViewport.width
-  const viewport = page.getViewport({ scale, rotation })
-  const canvas = document.createElement("canvas")
-  canvas.width = Math.ceil(viewport.width)
-  canvas.height = Math.ceil(viewport.height)
-  const ctx = canvas.getContext("2d")
-  if (!ctx) throw new Error("No 2D canvas context")
-  await page.render({ canvasContext: ctx, viewport }).promise
+  const canvas = await renderPageToCanvas(file, pageNumber, { width, rotation })
   const dataUrl = canvas.toDataURL("image/jpeg", 0.85)
 
   if (thumbCache.size >= MAX_THUMBS) {

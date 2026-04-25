@@ -18,3 +18,9 @@ export {
 export { mergePDFs, type MergeInput } from "./merge"
 export { splitPDF } from "./split"
 export { rotatePDF, rotatePagesIndividually } from "./rotate"
+export {
+  convertToImages,
+  type ConvertToImagesOptions,
+  type ImageFormat,
+  type ImageResult,
+} from "./convert"
