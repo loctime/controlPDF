@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { ToolCard } from "@/components/tool-card"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { DropZone } from "@/components/drop-zone"
 import type { FileItem } from "@/components/file-list"
 import { MergePanel } from "@/components/tools/merge-panel"
@@ -248,7 +249,10 @@ export default function PDFToolsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
-        <header className="text-center mb-8 md:mb-12">
+        <header className="relative text-center mb-8 md:mb-12">
+          <div className="absolute right-0 top-0">
+            <ThemeToggle />
+          </div>
           <div className="flex items-center justify-center gap-3 mb-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary">
               <FileText className="h-5 w-5 text-primary-foreground" />

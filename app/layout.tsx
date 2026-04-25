@@ -1,13 +1,14 @@
 import React from "react"
 import type { Metadata } from "next"
 import { Analytics } from "@vercel/analytics/next"
+import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Herramientas PDF — Unir, Dividir, Rotar y más",
+  title: "Herramientas PDF — Unir, Dividir, Comprimir, Firmar y OCR",
   description:
-    "Trabajá con archivos PDF directamente desde tu navegador: unir, dividir, rotar. Rápido, gratis y sin enviar tus archivos a ningún servidor.",
+    "Suite completa de herramientas PDF que corren 100% en tu navegador: unir, dividir, rotar, comprimir, convertir a imagen, proteger, firmar, OCR, marca de agua, numerar y editar metadatos. Tus archivos no salen nunca de tu computadora.",
   icons: {
     icon: [
       { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
@@ -22,10 +23,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        {children}
-        <Toaster richColors position="top-center" />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {children}
+          <Toaster richColors position="top-center" />
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>
