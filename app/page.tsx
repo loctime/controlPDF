@@ -23,6 +23,7 @@ import { MergePanel } from "@/components/tools/merge-panel"
 import { SplitPanel } from "@/components/tools/split-panel"
 import { RotatePanel } from "@/components/tools/rotate-panel"
 import { ConvertPanel } from "@/components/tools/convert-panel"
+import { CompressPanel } from "@/components/tools/compress-panel"
 import { PageNumbersPanel } from "@/components/tools/page-numbers-panel"
 import { WatermarkPanel } from "@/components/tools/watermark-panel"
 import { MetadataPanel } from "@/components/tools/metadata-panel"
@@ -79,9 +80,9 @@ const TOOLS: Tool[] = [
     id: "compress",
     label: "Comprimir",
     icon: Minimize2,
-    available: false,
+    available: true,
     multiple: false,
-    description: "Reducí el tamaño de tu PDF.",
+    description: "Reducí el tamaño rasterizando cada página como imagen.",
   },
   {
     id: "convert",
@@ -298,6 +299,9 @@ export default function PDFToolsPage() {
         {selectedTool === "rotate" && <RotatePanel key="rotate" {...panelProps} />}
         {selectedTool === "convert" && (
           <ConvertPanel key="convert" {...panelProps} />
+        )}
+        {selectedTool === "compress" && (
+          <CompressPanel key="compress" {...panelProps} />
         )}
         {selectedTool === "pageNumbers" && (
           <PageNumbersPanel key="pageNumbers" {...panelProps} />

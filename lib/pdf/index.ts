@@ -25,6 +25,12 @@ export {
   type ImageResult,
 } from "./convert"
 export {
+  compressPDF,
+  type CompressLevel,
+  type CompressOptions,
+  type CompressResult,
+} from "./compress"
+export {
   addPageNumbers,
   addTextWatermark,
   readMetadata,
