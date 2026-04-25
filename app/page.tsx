@@ -38,6 +38,7 @@ import {
   rangesEveryN,
   pagesToRanges,
   downloadBytes,
+  type MergeInput,
   type SplitRange,
 } from "@/lib/pdf"
 
@@ -155,6 +156,9 @@ export default function PDFToolsPage() {
   const [perPageRotations, setPerPageRotations] = useState<Map<number, number>>(
     new Map(),
   )
+  const [mergeRemovedPages, setMergeRemovedPages] = useState<
+    Map<string, Set<number>>
+  >(new Map())
 
   const tool = useMemo(
     () => TOOLS.find((t) => t.id === selectedTool) ?? TOOLS[0],
@@ -164,7 +168,23 @@ export default function PDFToolsPage() {
   const resetPageState = useCallback(() => {
     setSelectedPages(new Set())
     setPerPageRotations(new Map())
+    setMergeRemovedPages(new Map())
   }, [])
+
+  const toggleMergePageRemoval = useCallback(
+    (fileId: string, pageNumber: number) => {
+      setMergeRemovedPages((prev) => {
+        const next = new Map(prev)
+        const current = new Set(next.get(fileId) ?? [])
+        if (current.has(pageNumber)) current.delete(pageNumber)
+        else current.add(pageNumber)
+        if (current.size === 0) next.delete(fileId)
+        else next.set(fileId, current)
+        return next
+      })
+    },
+    [],
+  )
 
   const handleSelectTool = useCallback(
     (id: ToolId) => {
@@ -234,9 +254,16 @@ export default function PDFToolsPage() {
         if (removed) releaseDocument(removed.file)
         return prev.filter((f) => f.id !== id)
       })
-      resetPageState()
+      setMergeRemovedPages((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Map(prev)
+        next.delete(id)
+        return next
+      })
+      setSelectedPages(new Set())
+      setPerPageRotations(new Map())
     },
-    [resetPageState],
+    [],
   )
 
   const handleClear = useCallback(() => {
@@ -296,6 +323,24 @@ export default function PDFToolsPage() {
     return []
   }, [files, splitOptions, selectedPages])
 
+  const computeMergeInputs = useCallback((): MergeInput[] => {
+    return files
+      .filter((f) => f.pages && !f.error)
+      .map((f) => {
+        const removed = mergeRemovedPages.get(f.id)
+        if (!removed || removed.size === 0) {
+          return { file: f.file }
+        }
+        const total = f.pages ?? 0
+        const includePages: number[] = []
+        for (let n = 1; n <= total; n++) {
+          if (!removed.has(n)) includePages.push(n)
+        }
+        return { file: f.file, includePages }
+      })
+      .filter((m) => !m.includePages || m.includePages.length > 0)
+  }, [files, mergeRemovedPages])
+
   const canProcess = useMemo(() => {
     if (!tool.available) return false
     if (files.length < tool.minFiles) return false
@@ -306,15 +351,26 @@ export default function PDFToolsPage() {
     if (tool.id === "rotate" && rotateOptions.mode === "perPage") {
       return perPageRotations.size > 0
     }
+    if (tool.id === "merge") {
+      return computeMergeInputs().length >= 2
+    }
     return true
-  }, [tool, files, computeSplitRanges, rotateOptions.mode, perPageRotations])
+  }, [
+    tool,
+    files,
+    computeSplitRanges,
+    rotateOptions.mode,
+    perPageRotations,
+    computeMergeInputs,
+  ])
 
   const handleProcess = useCallback(async () => {
     if (!canProcess) return
     setIsProcessing(true)
     try {
       if (tool.id === "merge") {
-        const bytes = await mergePDFs(files.map((f) => f.file))
+        const inputs = computeMergeInputs()
+        const bytes = await mergePDFs(inputs)
         downloadBytes(bytes, "documento-unido.pdf")
         toast.success("PDF unido y descargado")
       } else if (tool.id === "rotate") {
@@ -354,6 +410,7 @@ export default function PDFToolsPage() {
     rotateOptions,
     perPageRotations,
     computeSplitRanges,
+    computeMergeInputs,
   ])
 
   useEffect(() => {
@@ -448,6 +505,46 @@ export default function PDFToolsPage() {
               reorderable={tool.multiple}
               onRemove={handleRemoveFile}
               onReorder={setFiles}
+              renderExpanded={
+                tool.id === "merge"
+                  ? (item) => {
+                      const removed =
+                        mergeRemovedPages.get(item.id) ?? new Set<number>()
+                      const remaining = (item.pages ?? 0) - removed.size
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>
+                              {remaining}/{item.pages} página
+                              {item.pages === 1 ? "" : "s"} se incluirán
+                            </span>
+                            {removed.size > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMergeRemovedPages((prev) => {
+                                    const next = new Map(prev)
+                                    next.delete(item.id)
+                                    return next
+                                  })
+                                }
+                                className="hover:text-foreground"
+                              >
+                                Restaurar todas
+                              </button>
+                            )}
+                          </div>
+                          <PageGrid
+                            file={item.file}
+                            pageCount={item.pages ?? 0}
+                            removedPages={removed}
+                            onRemove={(pn) => toggleMergePageRemoval(item.id, pn)}
+                          />
+                        </div>
+                      )
+                    }
+                  : undefined
+              }
             />
           </section>
         )}

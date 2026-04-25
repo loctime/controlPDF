@@ -15,6 +15,6 @@ export {
   renderThumbnail,
   type ThumbnailOptions,
 } from "./preview"
-export { mergePDFs } from "./merge"
+export { mergePDFs, type MergeInput } from "./merge"
 export { splitPDF } from "./split"
 export { rotatePDF, rotatePagesIndividually } from "./rotate"
