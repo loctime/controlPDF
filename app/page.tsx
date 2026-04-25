@@ -32,9 +32,13 @@ import {
   releaseDocument,
   mergePDFs,
   rotatePDF,
+  rotatePagesIndividually,
   splitPDF,
   parseRanges,
+  rangesEveryN,
+  pagesToRanges,
   downloadBytes,
+  type SplitRange,
 } from "@/lib/pdf"
 
 type ToolId =
@@ -83,7 +87,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     minFiles: 1,
-    description: "Rotá todas las páginas del documento.",
+    description: "Rotá todo el documento o página por página.",
   },
   {
     id: "compress",
@@ -135,28 +139,45 @@ const TOOLS: Tool[] = [
 const MAX_FILE_SIZE_MB = 100
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
+const DEFAULT_MERGE: MergeOptions = { keepBookmarks: true }
+const DEFAULT_ROTATE: RotateOptions = { mode: "all", angle: 90 }
+const DEFAULT_SPLIT: SplitOptions = { mode: "ranges", ranges: "", everyN: 1 }
+
 export default function PDFToolsPage() {
   const [selectedTool, setSelectedTool] = useState<ToolId>("merge")
   const [files, setFiles] = useState<FileItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [mergeOptions, setMergeOptions] = useState<MergeOptions>({ keepBookmarks: true })
-  const [rotateOptions, setRotateOptions] = useState<RotateOptions>({ angle: 90 })
-  const [splitOptions, setSplitOptions] = useState<SplitOptions>({ ranges: "" })
+  const [mergeOptions, setMergeOptions] = useState<MergeOptions>(DEFAULT_MERGE)
+  const [rotateOptions, setRotateOptions] = useState<RotateOptions>(DEFAULT_ROTATE)
+  const [splitOptions, setSplitOptions] = useState<SplitOptions>(DEFAULT_SPLIT)
+  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
+  const [perPageRotations, setPerPageRotations] = useState<Map<number, number>>(
+    new Map(),
+  )
 
   const tool = useMemo(
     () => TOOLS.find((t) => t.id === selectedTool) ?? TOOLS[0],
     [selectedTool],
   )
 
-  const handleSelectTool = useCallback((id: ToolId) => {
-    const next = TOOLS.find((t) => t.id === id)
-    if (!next || !next.available) return
-    setSelectedTool(id)
-    if (!next.multiple) {
-      setFiles((prev) => prev.slice(0, 1))
-    }
+  const resetPageState = useCallback(() => {
+    setSelectedPages(new Set())
+    setPerPageRotations(new Map())
   }, [])
+
+  const handleSelectTool = useCallback(
+    (id: ToolId) => {
+      const next = TOOLS.find((t) => t.id === id)
+      if (!next || !next.available) return
+      setSelectedTool(id)
+      resetPageState()
+      if (!next.multiple) {
+        setFiles((prev) => prev.slice(0, 1))
+      }
+    },
+    [resetPageState],
+  )
 
   const handleFilesAdded = useCallback(
     (incoming: File[]) => {
@@ -185,8 +206,8 @@ export default function PDFToolsPage() {
         if (!tool.multiple) return accepted.slice(0, 1)
         return [...prev, ...accepted]
       })
+      resetPageState()
 
-      // Read page counts in the background (pdfjs already needed for thumbnails)
       for (const item of accepted) {
         getPageCount(item.file)
           .then((pages) => {
@@ -203,25 +224,29 @@ export default function PDFToolsPage() {
           })
       }
     },
-    [tool.multiple],
+    [tool.multiple, resetPageState],
   )
 
-  const handleRemoveFile = useCallback((id: string) => {
-    setFiles((prev) => {
-      const removed = prev.find((f) => f.id === id)
-      if (removed) releaseDocument(removed.file)
-      return prev.filter((f) => f.id !== id)
-    })
-  }, [])
+  const handleRemoveFile = useCallback(
+    (id: string) => {
+      setFiles((prev) => {
+        const removed = prev.find((f) => f.id === id)
+        if (removed) releaseDocument(removed.file)
+        return prev.filter((f) => f.id !== id)
+      })
+      resetPageState()
+    },
+    [resetPageState],
+  )
 
   const handleClear = useCallback(() => {
     setFiles((prev) => {
       for (const f of prev) releaseDocument(f.file)
       return []
     })
-  }, [])
+    resetPageState()
+  }, [resetPageState])
 
-  // Release docs from cache on unmount
   useEffect(() => {
     return () => {
       for (const f of files) releaseDocument(f.file)
@@ -229,19 +254,60 @@ export default function PDFToolsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const togglePageSelection = useCallback((pageNumber: number) => {
+    setSelectedPages((prev) => {
+      const next = new Set(prev)
+      if (next.has(pageNumber)) next.delete(pageNumber)
+      else next.add(pageNumber)
+      return next
+    })
+  }, [])
+
+  const incrementPageRotation = useCallback((pageNumber: number) => {
+    setPerPageRotations((prev) => {
+      const next = new Map(prev)
+      const current = next.get(pageNumber) ?? 0
+      const updated = (current + 90) % 360
+      if (updated === 0) next.delete(pageNumber)
+      else next.set(pageNumber, updated)
+      return next
+    })
+  }, [])
+
+  const computeSplitRanges = useCallback((): SplitRange[] => {
+    const file = files[0]
+    if (!file || !file.pages) return []
+    const total = file.pages
+    if (splitOptions.mode === "ranges") {
+      if (!splitOptions.ranges.trim()) {
+        return Array.from({ length: total }, (_, i) => ({
+          from: i + 1,
+          to: i + 1,
+        }))
+      }
+      return parseRanges(splitOptions.ranges, total)
+    }
+    if (splitOptions.mode === "everyN") {
+      return rangesEveryN(total, Math.max(1, splitOptions.everyN))
+    }
+    if (splitOptions.mode === "visual") {
+      return pagesToRanges(Array.from(selectedPages))
+    }
+    return []
+  }, [files, splitOptions, selectedPages])
+
   const canProcess = useMemo(() => {
     if (!tool.available) return false
     if (files.length < tool.minFiles) return false
     if (files.some((f) => f.error || f.pages === null)) return false
     if (tool.id === "split") {
-      const file = files[0]
-      if (!file || !file.pages) return false
-      // Empty input is allowed (means: extract every page)
-      if (!splitOptions.ranges.trim()) return true
-      return parseRanges(splitOptions.ranges, file.pages).length > 0
+      return computeSplitRanges().length > 0
+    }
+    if (tool.id === "rotate" && rotateOptions.mode === "perPage") {
+      return perPageRotations.size > 0
     }
     return true
-  }, [tool, files, splitOptions])
+  }, [tool, files, computeSplitRanges, rotateOptions.mode, perPageRotations])
 
   const handleProcess = useCallback(async () => {
     if (!canProcess) return
@@ -252,17 +318,17 @@ export default function PDFToolsPage() {
         downloadBytes(bytes, "documento-unido.pdf")
         toast.success("PDF unido y descargado")
       } else if (tool.id === "rotate") {
-        const bytes = await rotatePDF(files[0].file, rotateOptions.angle)
-        const baseName = files[0].fileName.replace(/\.pdf$/i, "")
+        const file = files[0]
+        const baseName = file.fileName.replace(/\.pdf$/i, "")
+        const bytes =
+          rotateOptions.mode === "perPage"
+            ? await rotatePagesIndividually(file.file, perPageRotations)
+            : await rotatePDF(file.file, rotateOptions.angle)
         downloadBytes(bytes, `${baseName}-rotado.pdf`)
         toast.success("PDF rotado y descargado")
       } else if (tool.id === "split") {
         const file = files[0]
-        const total = file.pages ?? 0
-        const ranges =
-          splitOptions.ranges.trim().length > 0
-            ? parseRanges(splitOptions.ranges, total)
-            : Array.from({ length: total }, (_, i) => ({ from: i + 1, to: i + 1 }))
+        const ranges = computeSplitRanges()
         if (ranges.length === 0) {
           toast.error("No se reconocieron rangos válidos")
           return
@@ -271,7 +337,9 @@ export default function PDFToolsPage() {
         for (const r of results) {
           downloadBytes(r.bytes, r.name)
         }
-        toast.success(`${results.length} archivo${results.length > 1 ? "s" : ""} descargado${results.length > 1 ? "s" : ""}`)
+        toast.success(
+          `${results.length} archivo${results.length > 1 ? "s" : ""} descargado${results.length > 1 ? "s" : ""}`,
+        )
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error procesando el PDF"
@@ -279,9 +347,15 @@ export default function PDFToolsPage() {
     } finally {
       setIsProcessing(false)
     }
-  }, [canProcess, tool.id, files, rotateOptions.angle, splitOptions.ranges])
+  }, [
+    canProcess,
+    tool.id,
+    files,
+    rotateOptions,
+    perPageRotations,
+    computeSplitRanges,
+  ])
 
-  // Keyboard shortcut: Enter to process
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canProcess && !isProcessing) {
@@ -300,6 +374,22 @@ export default function PDFToolsPage() {
     if (tool.id === "split") return "Dividir y descargar"
     return tool.label
   }, [tool, isProcessing])
+
+  const showVisualSplit =
+    tool.id === "split" && splitOptions.mode === "visual" && files.length === 1
+  const showPerPageRotate =
+    tool.id === "rotate" && rotateOptions.mode === "perPage" && files.length === 1
+  const showPlainGrid =
+    !tool.multiple &&
+    files.length === 1 &&
+    (files[0].pages ?? 0) > 0 &&
+    !showVisualSplit &&
+    !showPerPageRotate
+
+  const splitPreviewCount = useMemo(() => {
+    if (tool.id !== "split") return 0
+    return computeSplitRanges().length
+  }, [tool.id, computeSplitRanges])
 
   return (
     <div className="min-h-screen bg-background">
@@ -362,15 +452,6 @@ export default function PDFToolsPage() {
           </section>
         )}
 
-        {!tool.multiple && files.length === 1 && (files[0].pages ?? 0) > 0 && (
-          <section className="mb-6">
-            <PageGrid
-              file={files[0].file}
-              pageCount={files[0].pages ?? 0}
-            />
-          </section>
-        )}
-
         {files.length > 0 && (
           <section className="mb-6">
             <OptionsPanel
@@ -382,6 +463,66 @@ export default function PDFToolsPage() {
               onRotateChange={setRotateOptions}
               onSplitChange={setSplitOptions}
             />
+          </section>
+        )}
+
+        {showVisualSplit && (
+          <section className="mb-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {selectedPages.size === 0
+                  ? "Tocá las páginas que querés extraer."
+                  : `${selectedPages.size} página${selectedPages.size === 1 ? "" : "s"} seleccionada${selectedPages.size === 1 ? "" : "s"} · ${splitPreviewCount} archivo${splitPreviewCount === 1 ? "" : "s"} resultado.`}
+              </p>
+              {selectedPages.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPages(new Set())}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Limpiar selección
+                </button>
+              )}
+            </div>
+            <PageGrid
+              file={files[0].file}
+              pageCount={files[0].pages ?? 0}
+              selectedPages={selectedPages}
+              onSelect={togglePageSelection}
+            />
+          </section>
+        )}
+
+        {showPerPageRotate && (
+          <section className="mb-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {perPageRotations.size === 0
+                  ? "Pasá el mouse y tocá el icono ↻ en cada página que quieras girar."
+                  : `${perPageRotations.size} página${perPageRotations.size === 1 ? "" : "s"} con rotación pendiente.`}
+              </p>
+              {perPageRotations.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPerPageRotations(new Map())}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Resetear rotaciones
+                </button>
+              )}
+            </div>
+            <PageGrid
+              file={files[0].file}
+              pageCount={files[0].pages ?? 0}
+              rotations={perPageRotations}
+              onRotate={incrementPageRotation}
+            />
+          </section>
+        )}
+
+        {showPlainGrid && (
+          <section className="mb-6">
+            <PageGrid file={files[0].file} pageCount={files[0].pages ?? 0} />
           </section>
         )}
 

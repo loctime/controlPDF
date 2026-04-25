@@ -63,3 +63,31 @@ export function parseRanges(input: string, totalPages: number): SplitRange[] {
   }
   return ranges
 }
+
+export function rangesEveryN(totalPages: number, n: number): SplitRange[] {
+  if (n <= 0 || totalPages <= 0) return []
+  const ranges: SplitRange[] = []
+  for (let from = 1; from <= totalPages; from += n) {
+    ranges.push({ from, to: Math.min(from + n - 1, totalPages) })
+  }
+  return ranges
+}
+
+export function pagesToRanges(pages: number[]): SplitRange[] {
+  if (pages.length === 0) return []
+  const sorted = Array.from(new Set(pages)).sort((a, b) => a - b)
+  const ranges: SplitRange[] = []
+  let from = sorted[0]
+  let to = sorted[0]
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === to + 1) {
+      to = sorted[i]
+    } else {
+      ranges.push({ from, to })
+      from = sorted[i]
+      to = sorted[i]
+    }
+  }
+  ranges.push({ from, to })
+  return ranges
+}

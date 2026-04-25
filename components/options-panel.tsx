@@ -6,13 +6,16 @@ import { cn } from "@/lib/utils"
 import type { RotationAngle } from "@/lib/pdf"
 
 export type MergeOptions = { keepBookmarks: boolean }
-export type RotateOptions = { angle: RotationAngle }
-export type SplitOptions = { ranges: string }
 
-export type ToolOptions =
-  | { tool: "merge"; options: MergeOptions }
-  | { tool: "rotate"; options: RotateOptions }
-  | { tool: "split"; options: SplitOptions }
+export type RotateMode = "all" | "perPage"
+export type RotateOptions = { mode: RotateMode; angle: RotationAngle }
+
+export type SplitMode = "ranges" | "everyN" | "visual"
+export type SplitOptions = {
+  mode: SplitMode
+  ranges: string
+  everyN: number
+}
 
 interface OptionsPanelProps {
   selectedTool: string
@@ -33,7 +36,7 @@ export function OptionsPanel({
   onRotateChange,
   onSplitChange,
 }: OptionsPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
 
   const renderOptions = () => {
     switch (selectedTool) {
@@ -56,41 +59,128 @@ export function OptionsPanel({
         )
       case "rotate":
         return (
-          <div className="space-y-2">
-            <label className="text-sm text-foreground" htmlFor="opt-rotate-angle">
-              Rotación
-            </label>
-            <select
-              id="opt-rotate-angle"
-              value={rotateOptions.angle}
-              onChange={(e) =>
-                onRotateChange({ angle: Number(e.target.value) as RotationAngle })
-              }
-              className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground"
-            >
-              <option value={90}>90° a la derecha</option>
-              <option value={180}>180°</option>
-              <option value={270}>90° a la izquierda</option>
-            </select>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-foreground" htmlFor="opt-rotate-mode">
+                Modo
+              </label>
+              <select
+                id="opt-rotate-mode"
+                value={rotateOptions.mode}
+                onChange={(e) =>
+                  onRotateChange({
+                    ...rotateOptions,
+                    mode: e.target.value as RotateMode,
+                  })
+                }
+                className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground"
+              >
+                <option value="all">Todas las páginas</option>
+                <option value="perPage">Página por página</option>
+              </select>
+            </div>
+            {rotateOptions.mode === "all" && (
+              <div className="space-y-2">
+                <label className="text-sm text-foreground" htmlFor="opt-rotate-angle">
+                  Rotación
+                </label>
+                <select
+                  id="opt-rotate-angle"
+                  value={rotateOptions.angle}
+                  onChange={(e) =>
+                    onRotateChange({
+                      ...rotateOptions,
+                      angle: Number(e.target.value) as RotationAngle,
+                    })
+                  }
+                  className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground"
+                >
+                  <option value={90}>90° a la derecha</option>
+                  <option value={180}>180°</option>
+                  <option value={270}>90° a la izquierda</option>
+                </select>
+              </div>
+            )}
+            {rotateOptions.mode === "perPage" && (
+              <p className="text-xs text-muted-foreground">
+                Pasá el mouse sobre cada miniatura y tocá el icono de rotar para girarla 90°.
+              </p>
+            )}
           </div>
         )
       case "split":
         return (
-          <div className="space-y-2">
-            <label className="text-sm text-foreground" htmlFor="opt-split-ranges">
-              Rangos de páginas
-            </label>
-            <input
-              id="opt-split-ranges"
-              type="text"
-              placeholder="Ej: 1-3, 5, 7-9"
-              value={splitOptions.ranges}
-              onChange={(e) => onSplitChange({ ranges: e.target.value })}
-              className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground"
-            />
-            <p className="text-xs text-muted-foreground">
-              Cada rango se convierte en un PDF independiente. Dejá vacío para extraer cada página.
-            </p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-foreground" htmlFor="opt-split-mode">
+                Modo
+              </label>
+              <select
+                id="opt-split-mode"
+                value={splitOptions.mode}
+                onChange={(e) =>
+                  onSplitChange({
+                    ...splitOptions,
+                    mode: e.target.value as SplitMode,
+                  })
+                }
+                className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground"
+              >
+                <option value="ranges">Por rangos</option>
+                <option value="everyN">Cada N páginas</option>
+                <option value="visual">Selección visual</option>
+              </select>
+            </div>
+            {splitOptions.mode === "ranges" && (
+              <div className="space-y-2">
+                <label className="text-sm text-foreground" htmlFor="opt-split-ranges">
+                  Rangos de páginas
+                </label>
+                <input
+                  id="opt-split-ranges"
+                  type="text"
+                  placeholder="Ej: 1-3, 5, 7-9"
+                  value={splitOptions.ranges}
+                  onChange={(e) =>
+                    onSplitChange({ ...splitOptions, ranges: e.target.value })
+                  }
+                  className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Cada rango se convierte en un PDF independiente. Vacío = una página por archivo.
+                </p>
+              </div>
+            )}
+            {splitOptions.mode === "everyN" && (
+              <div className="space-y-2">
+                <label className="text-sm text-foreground" htmlFor="opt-split-every">
+                  Tamaño del grupo
+                </label>
+                <input
+                  id="opt-split-every"
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={splitOptions.everyN}
+                  onChange={(e) =>
+                    onSplitChange({
+                      ...splitOptions,
+                      everyN: Math.max(1, Number(e.target.value) || 1),
+                    })
+                  }
+                  className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Genera un archivo cada {splitOptions.everyN} página
+                  {splitOptions.everyN === 1 ? "" : "s"}.
+                </p>
+              </div>
+            )}
+            {splitOptions.mode === "visual" && (
+              <p className="text-xs text-muted-foreground">
+                Seleccioná páginas haciendo click sobre las miniaturas.
+              </p>
+            )}
           </div>
         )
       default:

@@ -4,7 +4,9 @@ export {
   downloadBytes,
   downloadZip,
   formatFileSize,
+  pagesToRanges,
   parseRanges,
+  rangesEveryN,
   triggerDownload,
 } from "./utils"
 export {
