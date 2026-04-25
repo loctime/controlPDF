@@ -25,15 +25,17 @@ import {
   type RotateOptions,
   type SplitOptions,
 } from "@/components/options-panel"
+import { PageGrid } from "@/components/page-grid"
 import { Button } from "@/components/ui/button"
 import {
-  countPages,
+  getPageCount,
+  releaseDocument,
   mergePDFs,
   rotatePDF,
   splitPDF,
   parseRanges,
   downloadBytes,
-} from "@/lib/pdf-engine"
+} from "@/lib/pdf"
 
 type ToolId =
   | "merge"
@@ -184,9 +186,9 @@ export default function PDFToolsPage() {
         return [...prev, ...accepted]
       })
 
-      // Read page counts in the background
+      // Read page counts in the background (pdfjs already needed for thumbnails)
       for (const item of accepted) {
-        countPages(item.file)
+        getPageCount(item.file)
           .then((pages) => {
             setFiles((prev) =>
               prev.map((f) => (f.id === item.id ? { ...f, pages } : f)),
@@ -205,10 +207,27 @@ export default function PDFToolsPage() {
   )
 
   const handleRemoveFile = useCallback((id: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== id))
+    setFiles((prev) => {
+      const removed = prev.find((f) => f.id === id)
+      if (removed) releaseDocument(removed.file)
+      return prev.filter((f) => f.id !== id)
+    })
   }, [])
 
-  const handleClear = useCallback(() => setFiles([]), [])
+  const handleClear = useCallback(() => {
+    setFiles((prev) => {
+      for (const f of prev) releaseDocument(f.file)
+      return []
+    })
+  }, [])
+
+  // Release docs from cache on unmount
+  useEffect(() => {
+    return () => {
+      for (const f of files) releaseDocument(f.file)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const canProcess = useMemo(() => {
     if (!tool.available) return false
@@ -339,6 +358,15 @@ export default function PDFToolsPage() {
               reorderable={tool.multiple}
               onRemove={handleRemoveFile}
               onReorder={setFiles}
+            />
+          </section>
+        )}
+
+        {!tool.multiple && files.length === 1 && (files[0].pages ?? 0) > 0 && (
+          <section className="mb-6">
+            <PageGrid
+              file={files[0].file}
+              pageCount={files[0].pages ?? 0}
             />
           </section>
         )}

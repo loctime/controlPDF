@@ -3,7 +3,7 @@
 import React, { useCallback } from "react"
 import { FileText, GripVertical, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { formatFileSize } from "@/lib/pdf-engine"
+import { formatFileSize } from "@/lib/pdf"
 
 export interface FileItem {
   id: string

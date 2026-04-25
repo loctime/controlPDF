@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { ChevronDown, ChevronUp, Settings2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { RotationAngle } from "@/lib/pdf-engine"
+import type { RotationAngle } from "@/lib/pdf"
 
 export type MergeOptions = { keepBookmarks: boolean }
 export type RotateOptions = { angle: RotationAngle }
