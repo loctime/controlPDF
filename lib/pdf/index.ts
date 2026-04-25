@@ -24,3 +24,14 @@ export {
   type ImageFormat,
   type ImageResult,
 } from "./convert"
+export {
+  addPageNumbers,
+  addTextWatermark,
+  readMetadata,
+  setMetadata,
+  type MetadataOptions,
+  type PageNumberFormat,
+  type PageNumberOptions,
+  type TextPosition,
+  type WatermarkOptions,
+} from "./utilities"

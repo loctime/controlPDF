@@ -11,6 +11,9 @@ import {
   PenTool,
   ScanText,
   FileText,
+  Hash,
+  Droplet,
+  Info,
 } from "lucide-react"
 import { toast } from "sonner"
 import { ToolCard } from "@/components/tool-card"
@@ -20,6 +23,9 @@ import { MergePanel } from "@/components/tools/merge-panel"
 import { SplitPanel } from "@/components/tools/split-panel"
 import { RotatePanel } from "@/components/tools/rotate-panel"
 import { ConvertPanel } from "@/components/tools/convert-panel"
+import { PageNumbersPanel } from "@/components/tools/page-numbers-panel"
+import { WatermarkPanel } from "@/components/tools/watermark-panel"
+import { MetadataPanel } from "@/components/tools/metadata-panel"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
 
 type ToolId =
@@ -31,6 +37,9 @@ type ToolId =
   | "protect"
   | "sign"
   | "ocr"
+  | "pageNumbers"
+  | "watermark"
+  | "metadata"
 
 interface Tool {
   id: ToolId
@@ -105,6 +114,30 @@ const TOOLS: Tool[] = [
     available: false,
     multiple: false,
     description: "Reconocé texto en PDFs escaneados.",
+  },
+  {
+    id: "pageNumbers",
+    label: "Numerar",
+    icon: Hash,
+    available: true,
+    multiple: false,
+    description: "Agregá números de página con formato y posición a elección.",
+  },
+  {
+    id: "watermark",
+    label: "Marca de agua",
+    icon: Droplet,
+    available: true,
+    multiple: false,
+    description: "Aplicá un sello de texto en todas las páginas.",
+  },
+  {
+    id: "metadata",
+    label: "Metadatos",
+    icon: Info,
+    available: true,
+    multiple: false,
+    description: "Editá título, autor, asunto y palabras clave del PDF.",
   },
 ]
 
@@ -226,7 +259,7 @@ export default function PDFToolsPage() {
         </header>
 
         <section className="mb-8 md:mb-10">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2 md:gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-3">
             {TOOLS.map((t) => (
               <ToolCard
                 key={t.id}
@@ -265,6 +298,15 @@ export default function PDFToolsPage() {
         {selectedTool === "rotate" && <RotatePanel key="rotate" {...panelProps} />}
         {selectedTool === "convert" && (
           <ConvertPanel key="convert" {...panelProps} />
+        )}
+        {selectedTool === "pageNumbers" && (
+          <PageNumbersPanel key="pageNumbers" {...panelProps} />
+        )}
+        {selectedTool === "watermark" && (
+          <WatermarkPanel key="watermark" {...panelProps} />
+        )}
+        {selectedTool === "metadata" && (
+          <MetadataPanel key="metadata" {...panelProps} />
         )}
       </div>
     </div>
