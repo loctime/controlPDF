@@ -26,6 +26,7 @@ import { ConvertPanel } from "@/components/tools/convert-panel"
 import { CompressPanel } from "@/components/tools/compress-panel"
 import { ProtectPanel } from "@/components/tools/protect-panel"
 import { SignPanel } from "@/components/tools/sign-panel"
+import { OcrPanel } from "@/components/tools/ocr-panel"
 import { PageNumbersPanel } from "@/components/tools/page-numbers-panel"
 import { WatermarkPanel } from "@/components/tools/watermark-panel"
 import { MetadataPanel } from "@/components/tools/metadata-panel"
@@ -114,9 +115,9 @@ const TOOLS: Tool[] = [
     id: "ocr",
     label: "OCR",
     icon: ScanText,
-    available: false,
+    available: true,
     multiple: false,
-    description: "Reconocé texto en PDFs escaneados.",
+    description: "Reconocé texto en PDFs escaneados y generá un PDF con texto buscable.",
   },
   {
     id: "pageNumbers",
@@ -309,6 +310,7 @@ export default function PDFToolsPage() {
           <ProtectPanel key="protect" {...panelProps} />
         )}
         {selectedTool === "sign" && <SignPanel key="sign" {...panelProps} />}
+        {selectedTool === "ocr" && <OcrPanel key="ocr" {...panelProps} />}
         {selectedTool === "pageNumbers" && (
           <PageNumbersPanel key="pageNumbers" {...panelProps} />
         )}

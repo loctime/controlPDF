@@ -42,6 +42,12 @@ export {
   type SignaturePlacement,
 } from "./sign"
 export {
+  OCR_LANGUAGE_LABELS,
+  ocrPDF,
+  type OCRLanguage,
+  type OCROptions,
+} from "./ocr"
+export {
   addPageNumbers,
   addTextWatermark,
   readMetadata,
