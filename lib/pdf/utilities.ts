@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib"
+import { PDFDocument, StandardFonts, degrees, rgb } from "@cantoo/pdf-lib"
 
 export type TextPosition =
   | "topLeft"

@@ -1,4 +1,4 @@
-import { PDFDocument, degrees } from "pdf-lib"
+import { PDFDocument, degrees } from "@cantoo/pdf-lib"
 import type { RotationAngle } from "./types"
 
 export async function rotatePDF(

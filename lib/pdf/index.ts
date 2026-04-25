@@ -31,6 +31,12 @@ export {
   type CompressResult,
 } from "./compress"
 export {
+  protectPDF,
+  unlockPDF,
+  isEncrypted,
+  type ProtectOptions,
+} from "./protect"
+export {
   addPageNumbers,
   addTextWatermark,
   readMetadata,

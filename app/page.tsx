@@ -24,6 +24,7 @@ import { SplitPanel } from "@/components/tools/split-panel"
 import { RotatePanel } from "@/components/tools/rotate-panel"
 import { ConvertPanel } from "@/components/tools/convert-panel"
 import { CompressPanel } from "@/components/tools/compress-panel"
+import { ProtectPanel } from "@/components/tools/protect-panel"
 import { PageNumbersPanel } from "@/components/tools/page-numbers-panel"
 import { WatermarkPanel } from "@/components/tools/watermark-panel"
 import { MetadataPanel } from "@/components/tools/metadata-panel"
@@ -96,9 +97,9 @@ const TOOLS: Tool[] = [
     id: "protect",
     label: "Proteger",
     icon: Lock,
-    available: false,
+    available: true,
     multiple: false,
-    description: "Agregá contraseña a tu PDF.",
+    description: "Agregá o quitá contraseña y permisos del PDF.",
   },
   {
     id: "sign",
@@ -302,6 +303,9 @@ export default function PDFToolsPage() {
         )}
         {selectedTool === "compress" && (
           <CompressPanel key="compress" {...panelProps} />
+        )}
+        {selectedTool === "protect" && (
+          <ProtectPanel key="protect" {...panelProps} />
         )}
         {selectedTool === "pageNumbers" && (
           <PageNumbersPanel key="pageNumbers" {...panelProps} />
