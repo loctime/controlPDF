@@ -37,6 +37,11 @@ export {
   type ProtectOptions,
 } from "./protect"
 export {
+  applySignature,
+  renderTextSignatureToDataUrl,
+  type SignaturePlacement,
+} from "./sign"
+export {
   addPageNumbers,
   addTextWatermark,
   readMetadata,

@@ -25,6 +25,7 @@ import { RotatePanel } from "@/components/tools/rotate-panel"
 import { ConvertPanel } from "@/components/tools/convert-panel"
 import { CompressPanel } from "@/components/tools/compress-panel"
 import { ProtectPanel } from "@/components/tools/protect-panel"
+import { SignPanel } from "@/components/tools/sign-panel"
 import { PageNumbersPanel } from "@/components/tools/page-numbers-panel"
 import { WatermarkPanel } from "@/components/tools/watermark-panel"
 import { MetadataPanel } from "@/components/tools/metadata-panel"
@@ -105,9 +106,9 @@ const TOOLS: Tool[] = [
     id: "sign",
     label: "Firmar",
     icon: PenTool,
-    available: false,
+    available: true,
     multiple: false,
-    description: "Firmá documentos digitalmente.",
+    description: "Dibujá, subí o tipeá una firma y posicionala en una página.",
   },
   {
     id: "ocr",
@@ -307,6 +308,7 @@ export default function PDFToolsPage() {
         {selectedTool === "protect" && (
           <ProtectPanel key="protect" {...panelProps} />
         )}
+        {selectedTool === "sign" && <SignPanel key="sign" {...panelProps} />}
         {selectedTool === "pageNumbers" && (
           <PageNumbersPanel key="pageNumbers" {...panelProps} />
         )}
