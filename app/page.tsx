@@ -83,6 +83,8 @@ type ToolId =
   | "watermark"
   | "metadata"
 
+type ToolCategory = "organizar" | "convertir" | "editar" | "seguridad"
+
 interface Tool {
   id: ToolId
   label: string
@@ -90,7 +92,15 @@ interface Tool {
   available: boolean
   multiple: boolean
   description: string
+  category: ToolCategory
 }
+
+const CATEGORIES: Array<{ id: ToolCategory; label: string }> = [
+  { id: "organizar", label: "Organizar" },
+  { id: "convertir", label: "Convertir" },
+  { id: "editar", label: "Editar" },
+  { id: "seguridad", label: "Seguridad" },
+]
 
 const TOOLS: Tool[] = [
   {
@@ -100,6 +110,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: true,
     description: "Combina varios PDFs en uno solo. Reordená arrastrando.",
+    category: "organizar",
   },
   {
     id: "split",
@@ -108,6 +119,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Extraé páginas o rangos en archivos separados.",
+    category: "organizar",
   },
   {
     id: "rotate",
@@ -116,6 +128,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Rotá todo el documento o página por página.",
+    category: "organizar",
   },
   {
     id: "compress",
@@ -124,6 +137,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Reducí el tamaño rasterizando cada página como imagen.",
+    category: "convertir",
   },
   {
     id: "convert",
@@ -132,6 +146,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Convertí cada página en una imagen JPG o PNG.",
+    category: "convertir",
   },
   {
     id: "protect",
@@ -140,6 +155,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Agregá o quitá contraseña y permisos del PDF.",
+    category: "seguridad",
   },
   {
     id: "sign",
@@ -148,6 +164,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Dibujá, subí o tipeá una firma y posicionala en una página.",
+    category: "seguridad",
   },
   {
     id: "ocr",
@@ -156,6 +173,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Reconocé texto en PDFs escaneados y generá un PDF con texto buscable.",
+    category: "seguridad",
   },
   {
     id: "pageNumbers",
@@ -164,6 +182,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Agregá números de página con formato y posición a elección.",
+    category: "editar",
   },
   {
     id: "watermark",
@@ -172,6 +191,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Aplicá un sello de texto en todas las páginas.",
+    category: "editar",
   },
   {
     id: "metadata",
@@ -180,6 +200,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Editá título, autor, asunto y palabras clave del PDF.",
+    category: "editar",
   },
 ]
 
@@ -316,19 +337,30 @@ export default function PDFToolsPage() {
           </p>
         </header>
 
-        <section className="mb-8 md:mb-10">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-3">
-            {TOOLS.map((t) => (
-              <ToolCard
-                key={t.id}
-                icon={t.icon}
-                label={t.label}
-                isActive={selectedTool === t.id}
-                comingSoon={!t.available}
-                onClick={() => handleSelectTool(t.id)}
-              />
-            ))}
-          </div>
+        <section className="mb-8 md:mb-10 space-y-5">
+          {CATEGORIES.map((cat) => {
+            const items = TOOLS.filter((t) => t.category === cat.id)
+            if (items.length === 0) return null
+            return (
+              <div key={cat.id}>
+                <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                  {cat.label}
+                </h2>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-3">
+                  {items.map((t) => (
+                    <ToolCard
+                      key={t.id}
+                      icon={t.icon}
+                      label={t.label}
+                      isActive={selectedTool === t.id}
+                      comingSoon={!t.available}
+                      onClick={() => handleSelectTool(t.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </section>
 
         <section className="mb-2">
