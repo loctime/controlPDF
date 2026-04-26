@@ -10,6 +10,8 @@ import type { ToolPanelProps } from "@/components/tools/types"
 import { addTextWatermark, downloadBytes, type TextPosition } from "@/lib/pdf"
 import { usePersistentState } from "@/lib/storage"
 
+const WATERMARK_PRESETS = ["CONFIDENCIAL", "BORRADOR", "COPIA"]
+
 const POSITIONS: Array<{ value: TextPosition; label: string }> = [
   { value: "center", label: "Centro" },
   { value: "topCenter", label: "Superior centro" },
@@ -109,6 +111,18 @@ export function WatermarkPanel({
               placeholder="CONFIDENCIAL"
               className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground"
             />
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {WATERMARK_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setText(preset)}
+                  className="px-2 py-1 text-xs rounded-md border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm text-foreground" htmlFor="opt-wm-position">

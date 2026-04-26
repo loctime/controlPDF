@@ -321,7 +321,7 @@ export default function PDFToolsPage() {
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
         <header className="relative text-center mb-8 md:mb-12">
-          <div className="absolute right-0 top-0">
+          <div className="fixed top-3 right-3 z-40 md:absolute md:top-0 md:right-0">
             <ThemeToggle />
           </div>
           <div className="flex items-center justify-center gap-3 mb-3">
