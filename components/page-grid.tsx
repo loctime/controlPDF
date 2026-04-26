@@ -14,6 +14,7 @@ export interface PageGridProps {
   onRotate?: (pageNumber: number) => void
   onRemove?: (pageNumber: number) => void
   className?: string
+  eager?: boolean
 }
 
 export function PageGrid({
@@ -27,6 +28,7 @@ export function PageGrid({
   onRotate,
   onRemove,
   className,
+  eager,
 }: PageGridProps) {
   if (pageCount <= 0) return null
 
@@ -52,6 +54,7 @@ export function PageGrid({
           onClick={onSelect ? () => onSelect(pageNumber) : undefined}
           onRotate={onRotate ? () => onRotate(pageNumber) : undefined}
           onRemove={onRemove ? () => onRemove(pageNumber) : undefined}
+          lazy={!eager}
           className="mx-auto"
         />
       ))}
