@@ -15,6 +15,7 @@ import {
   splitPDF,
   type SplitRange,
 } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 type SplitMode = "ranges" | "everyN" | "visual"
 
@@ -26,9 +27,9 @@ export function SplitPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [mode, setMode] = useState<SplitMode>("ranges")
+  const [mode, setMode] = usePersistentState<SplitMode>("opts:split:mode", "ranges")
   const [ranges, setRanges] = useState("")
-  const [everyN, setEveryN] = useState(1)
+  const [everyN, setEveryN] = usePersistentState("opts:split:everyN", 1)
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
 
   const file = files[0]

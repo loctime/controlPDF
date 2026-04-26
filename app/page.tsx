@@ -23,6 +23,7 @@ import { DropZone } from "@/components/drop-zone"
 import type { FileItem } from "@/components/file-list"
 import { PanelSkeleton } from "@/components/panel-skeleton"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
+import { readStored, writeStored } from "@/lib/storage"
 
 const MergePanel = dynamic(
   () => import("@/components/tools/merge-panel").then((m) => m.MergePanel),
@@ -185,11 +186,24 @@ const TOOLS: Tool[] = [
 const MAX_FILE_SIZE_MB = 100
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
+const TOOL_IDS: ToolId[] = TOOLS.map((t) => t.id)
+
 export default function PDFToolsPage() {
   const [selectedTool, setSelectedTool] = useState<ToolId>("merge")
   const [files, setFiles] = useState<FileItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+
+  useEffect(() => {
+    const saved = readStored<string | null>("tool", null)
+    if (saved && (TOOL_IDS as string[]).includes(saved)) {
+      setSelectedTool(saved as ToolId)
+    }
+  }, [])
+
+  useEffect(() => {
+    writeStored("tool", selectedTool)
+  }, [selectedTool])
 
   const tool = useMemo(
     () => TOOLS.find((t) => t.id === selectedTool) ?? TOOLS[0],

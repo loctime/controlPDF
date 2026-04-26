@@ -21,6 +21,7 @@ import {
   downloadBytes,
   renderTextSignatureToDataUrl,
 } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 type SignatureMode = "draw" | "upload" | "text"
 
@@ -62,7 +63,7 @@ export function SignPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [mode, setMode] = useState<SignatureMode>("draw")
+  const [mode, setMode] = usePersistentState<SignatureMode>("opts:sign:mode", "draw")
   const [signatureSrc, setSignatureSrc] = useState<string | null>(null)
   const [signatureAspect, setSignatureAspect] = useState(0.3)
   const [textValue, setTextValue] = useState("")

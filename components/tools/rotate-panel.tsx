@@ -13,6 +13,7 @@ import {
   rotatePagesIndividually,
   type RotationAngle,
 } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 type RotateMode = "all" | "perPage"
 
@@ -24,8 +25,8 @@ export function RotatePanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [mode, setMode] = useState<RotateMode>("all")
-  const [angle, setAngle] = useState<RotationAngle>(90)
+  const [mode, setMode] = usePersistentState<RotateMode>("opts:rotate:mode", "all")
+  const [angle, setAngle] = usePersistentState<RotationAngle>("opts:rotate:angle", 90)
   const [perPageRotations, setPerPageRotations] = useState<Map<number, number>>(
     new Map(),
   )
