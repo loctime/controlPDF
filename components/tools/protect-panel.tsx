@@ -8,6 +8,7 @@ import { OptionsCard } from "@/components/options-card"
 import { ActionBar } from "@/components/tools/action-bar"
 import type { ToolPanelProps } from "@/components/tools/types"
 import { downloadBytes, isEncrypted, protectPDF, unlockPDF } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 type Mode = "protect" | "unlock"
 
@@ -19,14 +20,17 @@ export function ProtectPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [mode, setMode] = useState<Mode>("protect")
+  const [mode, setMode] = usePersistentState<Mode>("opts:protect:mode", "protect")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [allowPrint, setAllowPrint] = useState(true)
-  const [allowCopy, setAllowCopy] = useState(false)
-  const [allowModify, setAllowModify] = useState(false)
-  const [allowAnnotate, setAllowAnnotate] = useState(false)
+  const [allowPrint, setAllowPrint] = usePersistentState("opts:protect:allowPrint", true)
+  const [allowCopy, setAllowCopy] = usePersistentState("opts:protect:allowCopy", false)
+  const [allowModify, setAllowModify] = usePersistentState("opts:protect:allowModify", false)
+  const [allowAnnotate, setAllowAnnotate] = usePersistentState(
+    "opts:protect:allowAnnotate",
+    false,
+  )
   const [encrypted, setEncrypted] = useState<boolean | null>(null)
 
   const file = files[0]

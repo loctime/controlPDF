@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import {
   Layers,
   Scissors,
@@ -20,18 +21,56 @@ import { ToolCard } from "@/components/tool-card"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DropZone } from "@/components/drop-zone"
 import type { FileItem } from "@/components/file-list"
-import { MergePanel } from "@/components/tools/merge-panel"
-import { SplitPanel } from "@/components/tools/split-panel"
-import { RotatePanel } from "@/components/tools/rotate-panel"
-import { ConvertPanel } from "@/components/tools/convert-panel"
-import { CompressPanel } from "@/components/tools/compress-panel"
-import { ProtectPanel } from "@/components/tools/protect-panel"
-import { SignPanel } from "@/components/tools/sign-panel"
-import { OcrPanel } from "@/components/tools/ocr-panel"
-import { PageNumbersPanel } from "@/components/tools/page-numbers-panel"
-import { WatermarkPanel } from "@/components/tools/watermark-panel"
-import { MetadataPanel } from "@/components/tools/metadata-panel"
+import { PanelSkeleton } from "@/components/panel-skeleton"
+import { ErrorBoundary } from "@/components/error-boundary"
+import { ShortcutsDialog } from "@/components/shortcuts-dialog"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
+import { readStored, writeStored } from "@/lib/storage"
+
+const MergePanel = dynamic(
+  () => import("@/components/tools/merge-panel").then((m) => m.MergePanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const SplitPanel = dynamic(
+  () => import("@/components/tools/split-panel").then((m) => m.SplitPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const RotatePanel = dynamic(
+  () => import("@/components/tools/rotate-panel").then((m) => m.RotatePanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const ConvertPanel = dynamic(
+  () => import("@/components/tools/convert-panel").then((m) => m.ConvertPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const CompressPanel = dynamic(
+  () => import("@/components/tools/compress-panel").then((m) => m.CompressPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const ProtectPanel = dynamic(
+  () => import("@/components/tools/protect-panel").then((m) => m.ProtectPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const SignPanel = dynamic(
+  () => import("@/components/tools/sign-panel").then((m) => m.SignPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const OcrPanel = dynamic(
+  () => import("@/components/tools/ocr-panel").then((m) => m.OcrPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const PageNumbersPanel = dynamic(
+  () => import("@/components/tools/page-numbers-panel").then((m) => m.PageNumbersPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const WatermarkPanel = dynamic(
+  () => import("@/components/tools/watermark-panel").then((m) => m.WatermarkPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const MetadataPanel = dynamic(
+  () => import("@/components/tools/metadata-panel").then((m) => m.MetadataPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
 
 type ToolId =
   | "merge"
@@ -46,6 +85,8 @@ type ToolId =
   | "watermark"
   | "metadata"
 
+type ToolCategory = "organizar" | "convertir" | "editar" | "seguridad"
+
 interface Tool {
   id: ToolId
   label: string
@@ -53,7 +94,15 @@ interface Tool {
   available: boolean
   multiple: boolean
   description: string
+  category: ToolCategory
 }
+
+const CATEGORIES: Array<{ id: ToolCategory; label: string }> = [
+  { id: "organizar", label: "Organizar" },
+  { id: "convertir", label: "Convertir" },
+  { id: "editar", label: "Editar" },
+  { id: "seguridad", label: "Seguridad" },
+]
 
 const TOOLS: Tool[] = [
   {
@@ -63,6 +112,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: true,
     description: "Combina varios PDFs en uno solo. Reordená arrastrando.",
+    category: "organizar",
   },
   {
     id: "split",
@@ -71,6 +121,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Extraé páginas o rangos en archivos separados.",
+    category: "organizar",
   },
   {
     id: "rotate",
@@ -79,6 +130,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Rotá todo el documento o página por página.",
+    category: "organizar",
   },
   {
     id: "compress",
@@ -87,6 +139,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Reducí el tamaño rasterizando cada página como imagen.",
+    category: "convertir",
   },
   {
     id: "convert",
@@ -95,6 +148,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Convertí cada página en una imagen JPG o PNG.",
+    category: "convertir",
   },
   {
     id: "protect",
@@ -103,6 +157,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Agregá o quitá contraseña y permisos del PDF.",
+    category: "seguridad",
   },
   {
     id: "sign",
@@ -111,6 +166,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Dibujá, subí o tipeá una firma y posicionala en una página.",
+    category: "seguridad",
   },
   {
     id: "ocr",
@@ -119,6 +175,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Reconocé texto en PDFs escaneados y generá un PDF con texto buscable.",
+    category: "seguridad",
   },
   {
     id: "pageNumbers",
@@ -127,6 +184,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Agregá números de página con formato y posición a elección.",
+    category: "editar",
   },
   {
     id: "watermark",
@@ -135,6 +193,7 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Aplicá un sello de texto en todas las páginas.",
+    category: "editar",
   },
   {
     id: "metadata",
@@ -143,17 +202,42 @@ const TOOLS: Tool[] = [
     available: true,
     multiple: false,
     description: "Editá título, autor, asunto y palabras clave del PDF.",
+    category: "editar",
   },
 ]
 
 const MAX_FILE_SIZE_MB = 100
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
+const TOOL_IDS: ToolId[] = TOOLS.map((t) => t.id)
+
 export default function PDFToolsPage() {
   const [selectedTool, setSelectedTool] = useState<ToolId>("merge")
   const [files, setFiles] = useState<FileItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const filesRef = useRef<FileItem[]>(files)
+  filesRef.current = files
+
+  const isMac = useMemo(
+    () =>
+      typeof navigator !== "undefined" &&
+      /Mac|iPhone|iPad|iPod/.test(navigator.platform),
+    [],
+  )
+
+  useEffect(() => {
+    const saved = readStored<string | null>("tool", null)
+    if (saved && (TOOL_IDS as string[]).includes(saved)) {
+      setSelectedTool(saved as ToolId)
+    }
+  }, [])
+
+  useEffect(() => {
+    writeStored("tool", selectedTool)
+  }, [selectedTool])
 
   const tool = useMemo(
     () => TOOLS.find((t) => t.id === selectedTool) ?? TOOLS[0],
@@ -232,10 +316,38 @@ export default function PDFToolsPage() {
 
   useEffect(() => {
     return () => {
-      for (const f of files) releaseDocument(f.file)
+      for (const f of filesRef.current) releaseDocument(f.file)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isEditable =
+        !!target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      const mod = isMac ? e.metaKey : e.ctrlKey
+
+      if (mod && e.key.toLowerCase() === "o") {
+        e.preventDefault()
+        fileInputRef.current?.click()
+        return
+      }
+      if (e.key === "Escape" && !isEditable && filesRef.current.length > 0) {
+        handleClearFiles()
+        return
+      }
+      if (e.key === "?" && !isEditable && !mod && !e.altKey) {
+        e.preventDefault()
+        setShortcutsOpen((v) => !v)
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [handleClearFiles, isMac])
 
   const panelProps = {
     files,
@@ -250,7 +362,7 @@ export default function PDFToolsPage() {
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
         <header className="relative text-center mb-8 md:mb-12">
-          <div className="absolute right-0 top-0">
+          <div className="fixed top-3 right-3 z-40 md:absolute md:top-0 md:right-0">
             <ThemeToggle />
           </div>
           <div className="flex items-center justify-center gap-3 mb-3">
@@ -266,19 +378,30 @@ export default function PDFToolsPage() {
           </p>
         </header>
 
-        <section className="mb-8 md:mb-10">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-3">
-            {TOOLS.map((t) => (
-              <ToolCard
-                key={t.id}
-                icon={t.icon}
-                label={t.label}
-                isActive={selectedTool === t.id}
-                comingSoon={!t.available}
-                onClick={() => handleSelectTool(t.id)}
-              />
-            ))}
-          </div>
+        <section className="mb-8 md:mb-10 space-y-5">
+          {CATEGORIES.map((cat) => {
+            const items = TOOLS.filter((t) => t.category === cat.id)
+            if (items.length === 0) return null
+            return (
+              <div key={cat.id}>
+                <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                  {cat.label}
+                </h2>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-3">
+                  {items.map((t) => (
+                    <ToolCard
+                      key={t.id}
+                      icon={t.icon}
+                      label={t.label}
+                      isActive={selectedTool === t.id}
+                      comingSoon={!t.available}
+                      onClick={() => handleSelectTool(t.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </section>
 
         <section className="mb-2">
@@ -293,6 +416,7 @@ export default function PDFToolsPage() {
             isDragging={isDragging}
             setIsDragging={setIsDragging}
             multiple={tool.multiple}
+            inputRef={fileInputRef}
             hint={
               tool.multiple
                 ? `o haz clic para seleccionar · máx. ${MAX_FILE_SIZE_MB} MB por archivo`
@@ -301,30 +425,39 @@ export default function PDFToolsPage() {
           />
         </section>
 
-        {selectedTool === "merge" && <MergePanel key="merge" {...panelProps} />}
-        {selectedTool === "split" && <SplitPanel key="split" {...panelProps} />}
-        {selectedTool === "rotate" && <RotatePanel key="rotate" {...panelProps} />}
-        {selectedTool === "convert" && (
-          <ConvertPanel key="convert" {...panelProps} />
-        )}
-        {selectedTool === "compress" && (
-          <CompressPanel key="compress" {...panelProps} />
-        )}
-        {selectedTool === "protect" && (
-          <ProtectPanel key="protect" {...panelProps} />
-        )}
-        {selectedTool === "sign" && <SignPanel key="sign" {...panelProps} />}
-        {selectedTool === "ocr" && <OcrPanel key="ocr" {...panelProps} />}
-        {selectedTool === "pageNumbers" && (
-          <PageNumbersPanel key="pageNumbers" {...panelProps} />
-        )}
-        {selectedTool === "watermark" && (
-          <WatermarkPanel key="watermark" {...panelProps} />
-        )}
-        {selectedTool === "metadata" && (
-          <MetadataPanel key="metadata" {...panelProps} />
-        )}
+        <ErrorBoundary resetKey={selectedTool} onReset={handleClearFiles}>
+          {selectedTool === "merge" && <MergePanel key="merge" {...panelProps} />}
+          {selectedTool === "split" && <SplitPanel key="split" {...panelProps} />}
+          {selectedTool === "rotate" && (
+            <RotatePanel key="rotate" {...panelProps} />
+          )}
+          {selectedTool === "convert" && (
+            <ConvertPanel key="convert" {...panelProps} />
+          )}
+          {selectedTool === "compress" && (
+            <CompressPanel key="compress" {...panelProps} />
+          )}
+          {selectedTool === "protect" && (
+            <ProtectPanel key="protect" {...panelProps} />
+          )}
+          {selectedTool === "sign" && <SignPanel key="sign" {...panelProps} />}
+          {selectedTool === "ocr" && <OcrPanel key="ocr" {...panelProps} />}
+          {selectedTool === "pageNumbers" && (
+            <PageNumbersPanel key="pageNumbers" {...panelProps} />
+          )}
+          {selectedTool === "watermark" && (
+            <WatermarkPanel key="watermark" {...panelProps} />
+          )}
+          {selectedTool === "metadata" && (
+            <MetadataPanel key="metadata" {...panelProps} />
+          )}
+        </ErrorBoundary>
       </div>
+      <ShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        isMac={isMac}
+      />
     </div>
   )
 }

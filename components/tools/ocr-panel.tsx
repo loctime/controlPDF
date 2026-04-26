@@ -15,6 +15,7 @@ import {
   ocrPDF,
   type OCRLanguage,
 } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 const LANGUAGES: OCRLanguage[] = ["spa", "eng", "por", "fra", "deu", "ita"]
 
@@ -26,8 +27,8 @@ export function OcrPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [language, setLanguage] = useState<OCRLanguage>("spa")
-  const [dpi, setDpi] = useState(200)
+  const [language, setLanguage] = usePersistentState<OCRLanguage>("opts:ocr:language", "spa")
+  const [dpi, setDpi] = usePersistentState("opts:ocr:dpi", 200)
   const [progress, setProgress] = useState<{
     phase: "init" | "recognize" | "build"
     done: number

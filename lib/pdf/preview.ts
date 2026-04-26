@@ -26,6 +26,13 @@ const docCache = new Map<string, Promise<PDFDocumentProxy>>()
 const thumbCache = new Map<string, string>()
 const MAX_THUMBS = 300
 
+function evictThumb(key: string) {
+  const url = thumbCache.get(key)
+  if (!url) return
+  thumbCache.delete(key)
+  URL.revokeObjectURL(url)
+}
+
 async function getDoc(file: File): Promise<PDFDocumentProxy> {
   const sig = fileSig(file)
   let pending = docCache.get(sig)
@@ -48,7 +55,7 @@ export function releaseDocument(file: File) {
   pending.then((doc) => doc.destroy()).catch(() => {})
   const prefix = `${sig}::`
   for (const key of Array.from(thumbCache.keys())) {
-    if (key.startsWith(prefix)) thumbCache.delete(key)
+    if (key.startsWith(prefix)) evictThumb(key)
   }
 }
 
@@ -125,12 +132,19 @@ export async function renderThumbnail(
   if (cached) return cached
 
   const canvas = await renderPageToCanvas(file, pageNumber, { width, rotation })
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.85)
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("No se pudo generar la miniatura"))),
+      "image/jpeg",
+      0.85,
+    )
+  })
+  const url = URL.createObjectURL(blob)
 
   if (thumbCache.size >= MAX_THUMBS) {
     const first = thumbCache.keys().next().value
-    if (first) thumbCache.delete(first)
+    if (first) evictThumb(first)
   }
-  thumbCache.set(key, dataUrl)
-  return dataUrl
+  thumbCache.set(key, url)
+  return url
 }

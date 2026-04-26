@@ -14,6 +14,7 @@ import {
   formatFileSize,
   type CompressLevel,
 } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 const LEVEL_LABEL: Record<CompressLevel, string> = {
   low: "Baja (mejor calidad)",
@@ -29,7 +30,7 @@ export function CompressPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [level, setLevel] = useState<CompressLevel>("medium")
+  const [level, setLevel] = usePersistentState<CompressLevel>("opts:compress:level", "medium")
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(
     null,
   )

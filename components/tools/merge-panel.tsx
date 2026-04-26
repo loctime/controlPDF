@@ -9,6 +9,7 @@ import { PageGrid } from "@/components/page-grid"
 import { ActionBar } from "@/components/tools/action-bar"
 import type { ToolPanelProps } from "@/components/tools/types"
 import { downloadBytes, mergePDFs, type MergeInput } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 export function MergePanel({
   files,
@@ -18,7 +19,7 @@ export function MergePanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [keepBookmarks, setKeepBookmarks] = useState(true)
+  const [keepBookmarks, setKeepBookmarks] = usePersistentState("opts:merge:keepBookmarks", true)
   const [removedPages, setRemovedPages] = useState<Map<string, Set<number>>>(
     new Map(),
   )

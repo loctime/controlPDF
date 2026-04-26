@@ -16,6 +16,7 @@ export interface PageThumbnailProps {
   onRotate?: () => void
   onRemove?: () => void
   className?: string
+  lazy?: boolean
 }
 
 export function PageThumbnail({
@@ -29,13 +30,38 @@ export function PageThumbnail({
   onRotate,
   onRemove,
   className,
+  lazy = true,
 }: PageThumbnailProps) {
   const [src, setSrc] = useState<string | null>(null)
   const [error, setError] = useState(false)
+  const [inView, setInView] = useState(!lazy)
+  const containerRef = useRef<HTMLDivElement>(null)
   const mounted = useRef(true)
 
   useEffect(() => {
+    if (!lazy || inView) return
+    const el = containerRef.current
+    if (!el) return
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: "200px 0px" },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [lazy, inView])
+
+  useEffect(() => {
     mounted.current = true
+    if (!inView) return
     setSrc(null)
     setError(false)
     renderThumbnail(file, pageNumber, { width, rotation })
@@ -48,10 +74,11 @@ export function PageThumbnail({
     return () => {
       mounted.current = false
     }
-  }, [file, pageNumber, width, rotation])
+  }, [file, pageNumber, width, rotation, inView])
 
   return (
     <div
+      ref={containerRef}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -87,10 +114,12 @@ export function PageThumbnail({
             <FileWarning className="h-5 w-5" />
             <span className="text-[10px]">Error</span>
           </div>
-        ) : (
+        ) : inView ? (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
+        ) : (
+          <div className="h-full w-full" aria-hidden="true" />
         )}
         {(onRotate || onRemove) && (
           <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">

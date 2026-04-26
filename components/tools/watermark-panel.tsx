@@ -8,6 +8,9 @@ import { PageGrid } from "@/components/page-grid"
 import { ActionBar } from "@/components/tools/action-bar"
 import type { ToolPanelProps } from "@/components/tools/types"
 import { addTextWatermark, downloadBytes, type TextPosition } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
+
+const WATERMARK_PRESETS = ["CONFIDENCIAL", "BORRADOR", "COPIA"]
 
 const POSITIONS: Array<{ value: TextPosition; label: string }> = [
   { value: "center", label: "Centro" },
@@ -37,12 +40,15 @@ export function WatermarkPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [text, setText] = useState("CONFIDENCIAL")
-  const [fontSize, setFontSize] = useState(72)
-  const [opacity, setOpacity] = useState(0.25)
-  const [rotation, setRotation] = useState(-30)
-  const [position, setPosition] = useState<TextPosition>("center")
-  const [color, setColor] = useState("#9ca3af")
+  const [text, setText] = usePersistentState("opts:watermark:text", "CONFIDENCIAL")
+  const [fontSize, setFontSize] = usePersistentState("opts:watermark:fontSize", 72)
+  const [opacity, setOpacity] = usePersistentState("opts:watermark:opacity", 0.25)
+  const [rotation, setRotation] = usePersistentState("opts:watermark:rotation", -30)
+  const [position, setPosition] = usePersistentState<TextPosition>(
+    "opts:watermark:position",
+    "center",
+  )
+  const [color, setColor] = usePersistentState("opts:watermark:color", "#9ca3af")
 
   const file = files[0]
   const totalPages = file?.pages ?? 0
@@ -105,6 +111,18 @@ export function WatermarkPanel({
               placeholder="CONFIDENCIAL"
               className="w-full p-2 text-sm rounded-md border border-input bg-background text-foreground"
             />
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {WATERMARK_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setText(preset)}
+                  className="px-2 py-1 text-xs rounded-md border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm text-foreground" htmlFor="opt-wm-position">

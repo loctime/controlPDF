@@ -14,6 +14,7 @@ import {
   triggerDownload,
   type ImageFormat,
 } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 type DPIOption = 72 | 150 | 300
 
@@ -25,9 +26,9 @@ export function ConvertPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [format, setFormat] = useState<ImageFormat>("jpeg")
-  const [dpi, setDpi] = useState<DPIOption>(150)
-  const [quality, setQuality] = useState(0.92)
+  const [format, setFormat] = usePersistentState<ImageFormat>("opts:convert:format", "jpeg")
+  const [dpi, setDpi] = usePersistentState<DPIOption>("opts:convert:dpi", 150)
+  const [quality, setQuality] = usePersistentState("opts:convert:quality", 0.92)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(
     null,
   )

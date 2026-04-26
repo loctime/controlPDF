@@ -13,6 +13,7 @@ import {
   type PageNumberFormat,
   type PageNumberOptions,
 } from "@/lib/pdf"
+import { usePersistentState } from "@/lib/storage"
 
 type Position = PageNumberOptions["position"]
 
@@ -40,12 +41,21 @@ export function PageNumbersPanel({
   onRemoveFile,
   onClearFiles,
 }: ToolPanelProps) {
-  const [position, setPosition] = useState<Position>("bottomCenter")
-  const [format, setFormat] = useState<PageNumberFormat>("n-of-total")
-  const [fontSize, setFontSize] = useState(10)
-  const [margin, setMargin] = useState(30)
-  const [skipFirstPage, setSkipFirstPage] = useState(false)
-  const [startAtPage, setStartAtPage] = useState(1)
+  const [position, setPosition] = usePersistentState<Position>(
+    "opts:pageNumbers:position",
+    "bottomCenter",
+  )
+  const [format, setFormat] = usePersistentState<PageNumberFormat>(
+    "opts:pageNumbers:format",
+    "n-of-total",
+  )
+  const [fontSize, setFontSize] = usePersistentState("opts:pageNumbers:fontSize", 10)
+  const [margin, setMargin] = usePersistentState("opts:pageNumbers:margin", 30)
+  const [skipFirstPage, setSkipFirstPage] = usePersistentState(
+    "opts:pageNumbers:skipFirstPage",
+    false,
+  )
+  const [startAtPage, setStartAtPage] = usePersistentState("opts:pageNumbers:startAtPage", 1)
 
   const file = files[0]
   const totalPages = file?.pages ?? 0
