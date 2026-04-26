@@ -10,6 +10,7 @@ interface DropZoneProps {
   setIsDragging: (dragging: boolean) => void
   multiple?: boolean
   hint?: string
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }
 
 export function DropZone({
@@ -18,6 +19,7 @@ export function DropZone({
   setIsDragging,
   multiple = true,
   hint,
+  inputRef,
 }: DropZoneProps) {
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
@@ -69,6 +71,7 @@ export function DropZone({
       )}
     >
       <input
+        ref={inputRef}
         type="file"
         accept="application/pdf,.pdf"
         multiple={multiple}

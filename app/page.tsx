@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   Layers,
@@ -22,6 +22,8 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { DropZone } from "@/components/drop-zone"
 import type { FileItem } from "@/components/file-list"
 import { PanelSkeleton } from "@/components/panel-skeleton"
+import { ErrorBoundary } from "@/components/error-boundary"
+import { ShortcutsDialog } from "@/components/shortcuts-dialog"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
 import { readStored, writeStored } from "@/lib/storage"
 
@@ -214,6 +216,17 @@ export default function PDFToolsPage() {
   const [files, setFiles] = useState<FileItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const filesRef = useRef<FileItem[]>(files)
+  filesRef.current = files
+
+  const isMac = useMemo(
+    () =>
+      typeof navigator !== "undefined" &&
+      /Mac|iPhone|iPad|iPod/.test(navigator.platform),
+    [],
+  )
 
   useEffect(() => {
     const saved = readStored<string | null>("tool", null)
@@ -303,10 +316,38 @@ export default function PDFToolsPage() {
 
   useEffect(() => {
     return () => {
-      for (const f of files) releaseDocument(f.file)
+      for (const f of filesRef.current) releaseDocument(f.file)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isEditable =
+        !!target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      const mod = isMac ? e.metaKey : e.ctrlKey
+
+      if (mod && e.key.toLowerCase() === "o") {
+        e.preventDefault()
+        fileInputRef.current?.click()
+        return
+      }
+      if (e.key === "Escape" && !isEditable && filesRef.current.length > 0) {
+        handleClearFiles()
+        return
+      }
+      if (e.key === "?" && !isEditable && !mod && !e.altKey) {
+        e.preventDefault()
+        setShortcutsOpen((v) => !v)
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [handleClearFiles, isMac])
 
   const panelProps = {
     files,
@@ -375,6 +416,7 @@ export default function PDFToolsPage() {
             isDragging={isDragging}
             setIsDragging={setIsDragging}
             multiple={tool.multiple}
+            inputRef={fileInputRef}
             hint={
               tool.multiple
                 ? `o haz clic para seleccionar · máx. ${MAX_FILE_SIZE_MB} MB por archivo`
@@ -383,30 +425,39 @@ export default function PDFToolsPage() {
           />
         </section>
 
-        {selectedTool === "merge" && <MergePanel key="merge" {...panelProps} />}
-        {selectedTool === "split" && <SplitPanel key="split" {...panelProps} />}
-        {selectedTool === "rotate" && <RotatePanel key="rotate" {...panelProps} />}
-        {selectedTool === "convert" && (
-          <ConvertPanel key="convert" {...panelProps} />
-        )}
-        {selectedTool === "compress" && (
-          <CompressPanel key="compress" {...panelProps} />
-        )}
-        {selectedTool === "protect" && (
-          <ProtectPanel key="protect" {...panelProps} />
-        )}
-        {selectedTool === "sign" && <SignPanel key="sign" {...panelProps} />}
-        {selectedTool === "ocr" && <OcrPanel key="ocr" {...panelProps} />}
-        {selectedTool === "pageNumbers" && (
-          <PageNumbersPanel key="pageNumbers" {...panelProps} />
-        )}
-        {selectedTool === "watermark" && (
-          <WatermarkPanel key="watermark" {...panelProps} />
-        )}
-        {selectedTool === "metadata" && (
-          <MetadataPanel key="metadata" {...panelProps} />
-        )}
+        <ErrorBoundary resetKey={selectedTool} onReset={handleClearFiles}>
+          {selectedTool === "merge" && <MergePanel key="merge" {...panelProps} />}
+          {selectedTool === "split" && <SplitPanel key="split" {...panelProps} />}
+          {selectedTool === "rotate" && (
+            <RotatePanel key="rotate" {...panelProps} />
+          )}
+          {selectedTool === "convert" && (
+            <ConvertPanel key="convert" {...panelProps} />
+          )}
+          {selectedTool === "compress" && (
+            <CompressPanel key="compress" {...panelProps} />
+          )}
+          {selectedTool === "protect" && (
+            <ProtectPanel key="protect" {...panelProps} />
+          )}
+          {selectedTool === "sign" && <SignPanel key="sign" {...panelProps} />}
+          {selectedTool === "ocr" && <OcrPanel key="ocr" {...panelProps} />}
+          {selectedTool === "pageNumbers" && (
+            <PageNumbersPanel key="pageNumbers" {...panelProps} />
+          )}
+          {selectedTool === "watermark" && (
+            <WatermarkPanel key="watermark" {...panelProps} />
+          )}
+          {selectedTool === "metadata" && (
+            <MetadataPanel key="metadata" {...panelProps} />
+          )}
+        </ErrorBoundary>
       </div>
+      <ShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        isMac={isMac}
+      />
     </div>
   )
 }
