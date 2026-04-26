@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import {
   Layers,
   Scissors,
@@ -20,18 +21,53 @@ import { ToolCard } from "@/components/tool-card"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DropZone } from "@/components/drop-zone"
 import type { FileItem } from "@/components/file-list"
-import { MergePanel } from "@/components/tools/merge-panel"
-import { SplitPanel } from "@/components/tools/split-panel"
-import { RotatePanel } from "@/components/tools/rotate-panel"
-import { ConvertPanel } from "@/components/tools/convert-panel"
-import { CompressPanel } from "@/components/tools/compress-panel"
-import { ProtectPanel } from "@/components/tools/protect-panel"
-import { SignPanel } from "@/components/tools/sign-panel"
-import { OcrPanel } from "@/components/tools/ocr-panel"
-import { PageNumbersPanel } from "@/components/tools/page-numbers-panel"
-import { WatermarkPanel } from "@/components/tools/watermark-panel"
-import { MetadataPanel } from "@/components/tools/metadata-panel"
+import { PanelSkeleton } from "@/components/panel-skeleton"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
+
+const MergePanel = dynamic(
+  () => import("@/components/tools/merge-panel").then((m) => m.MergePanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const SplitPanel = dynamic(
+  () => import("@/components/tools/split-panel").then((m) => m.SplitPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const RotatePanel = dynamic(
+  () => import("@/components/tools/rotate-panel").then((m) => m.RotatePanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const ConvertPanel = dynamic(
+  () => import("@/components/tools/convert-panel").then((m) => m.ConvertPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const CompressPanel = dynamic(
+  () => import("@/components/tools/compress-panel").then((m) => m.CompressPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const ProtectPanel = dynamic(
+  () => import("@/components/tools/protect-panel").then((m) => m.ProtectPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const SignPanel = dynamic(
+  () => import("@/components/tools/sign-panel").then((m) => m.SignPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const OcrPanel = dynamic(
+  () => import("@/components/tools/ocr-panel").then((m) => m.OcrPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const PageNumbersPanel = dynamic(
+  () => import("@/components/tools/page-numbers-panel").then((m) => m.PageNumbersPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const WatermarkPanel = dynamic(
+  () => import("@/components/tools/watermark-panel").then((m) => m.WatermarkPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
+const MetadataPanel = dynamic(
+  () => import("@/components/tools/metadata-panel").then((m) => m.MetadataPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+)
 
 type ToolId =
   | "merge"
