@@ -42,7 +42,10 @@ export function DropZone({
       e.preventDefault()
       setIsDragging(false)
       const dropped = Array.from(e.dataTransfer.files).filter(
-        (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+        (f) =>
+          f.type === "application/pdf" ||
+          f.name.toLowerCase().endsWith(".pdf") ||
+          f.type.startsWith("image/"),
       )
       if (dropped.length === 0) return
       onFilesAdded(multiple ? dropped : dropped.slice(0, 1))
@@ -73,11 +76,11 @@ export function DropZone({
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,image/png,image/jpeg,image/jpg"
         multiple={multiple}
         onChange={handleFileInput}
         className="absolute inset-0 opacity-0 cursor-pointer"
-        aria-label="Seleccionar archivos PDF"
+        aria-label="Seleccionar archivos PDF o imágenes"
       />
       <div
         className={cn(
@@ -94,7 +97,7 @@ export function DropZone({
       </div>
       <div className="text-center">
         <p className="text-lg font-medium text-foreground">
-          {multiple ? "Arrastra tus archivos PDF aquí" : "Arrastra un archivo PDF aquí"}
+          {multiple ? "Arrastra tus archivos aquí" : "Arrastra un archivo aquí"}
         </p>
         <p className="text-sm text-muted-foreground mt-1">
           {hint ?? "o haz clic para seleccionar"}

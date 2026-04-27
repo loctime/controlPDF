@@ -296,37 +296,70 @@ async function applyOcr(
       const pdfHeight = canvas.height / scale
       ctx.doc.removePage(idx)
       const newPage = ctx.doc.insertPage(idx, [pdfWidth, pdfHeight])
-      const image = await ctx.doc.embedPng(imageBytes)
-      newPage.drawImage(image, {
-        x: 0,
-        y: 0,
-        width: pdfWidth,
-        height: pdfHeight,
-      })
+      const isReconstruct = op.mode === "reconstruct"
+
+      if (!isReconstruct) {
+        const image = await ctx.doc.embedPng(imageBytes)
+        newPage.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: pdfWidth,
+          height: pdfHeight,
+        })
+      }
 
       const blocks = data.blocks ?? []
       for (const block of blocks) {
-        for (const para of block.paragraphs ?? []) {
-          for (const line of para.lines ?? []) {
-            for (const w of line.words ?? []) {
-              if (!w.text) continue
-              const sanitized = w.text.replace(/[^\x20-\x7E -ÿ]/g, "")
-              if (!sanitized) continue
-              const x = w.bbox.x0 / scale
-              const y = pdfHeight - w.bbox.y1 / scale
-              const heightPx = w.bbox.y1 - w.bbox.y0
-              const fontHeight = Math.max(4, (heightPx / scale) * 0.85)
-              try {
-                newPage.drawText(sanitized, {
-                  x,
-                  y,
-                  size: fontHeight,
-                  font,
-                  color: rgb(0, 0, 0),
-                  opacity: 0,
-                })
-              } catch {
-                // glyph not in Helvetica; skip
+        const type = String(block.blocktype || "").toUpperCase()
+        const isImageOrLine = type.includes("IMAGE") || type.includes("LINE")
+
+        if (isReconstruct && isImageOrLine && block.bbox) {
+          const { x0, y0, x1, y1 } = block.bbox
+          const w = x1 - x0
+          const h = y1 - y0
+          if (w > 0 && h > 0) {
+            const tempCanvas = document.createElement("canvas")
+            tempCanvas.width = w
+            tempCanvas.height = h
+            const ctx2d = tempCanvas.getContext("2d")
+            if (ctx2d) {
+              ctx2d.drawImage(canvas, x0, y0, w, h, 0, 0, w, h)
+              const cropBlob: Blob = await new Promise((res, rej) =>
+                tempCanvas.toBlob((b) => (b ? res(b) : rej(new Error("crop"))), "image/png")
+              )
+              const cropBytes = new Uint8Array(await cropBlob.arrayBuffer())
+              const cropImage = await ctx.doc.embedPng(cropBytes)
+              newPage.drawImage(cropImage, {
+                x: x0 / scale,
+                y: pdfHeight - y1 / scale,
+                width: w / scale,
+                height: h / scale,
+              })
+            }
+          }
+        } else {
+          for (const para of block.paragraphs ?? []) {
+            for (const line of para.lines ?? []) {
+              for (const w of line.words ?? []) {
+                if (!w.text) continue
+                const sanitized = w.text.replace(/[^\x20-\x7E -ÿ]/g, "")
+                if (!sanitized) continue
+                const x = w.bbox.x0 / scale
+                const y = pdfHeight - w.bbox.y1 / scale
+                const heightPx = w.bbox.y1 - w.bbox.y0
+                const fontHeight = Math.max(4, (heightPx / scale) * 0.85)
+                try {
+                  newPage.drawText(sanitized, {
+                    x,
+                    y,
+                    size: fontHeight,
+                    font,
+                    color: rgb(0, 0, 0),
+                    opacity: isReconstruct ? 1 : 0,
+                  })
+                } catch {
+                  // glyph not in Helvetica; skip
+                }
               }
             }
           }

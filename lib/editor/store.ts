@@ -110,15 +110,26 @@ export const useEditorStore = create<Store>((set, get) => {
     history: [],
     future: [],
 
-    addSources: (files: File[]) => {
+    addSources: async (files: File[]) => {
       if (files.length === 0) return
+
+      const processedFiles = await Promise.all(
+        files.map(async (file) => {
+          if (file.type.startsWith("image/")) {
+            const { convertImageToPdf } = await import("@/lib/pdf/image-to-pdf")
+            return convertImageToPdf(file)
+          }
+          return file
+        })
+      )
+
       pushHistory()
       const s = get()
       const newSources: Record<SourceId, SourceFile> = { ...s.sources }
       const newOrder: SourceId[] = [...s.sourceOrder]
       const pendingCounts: Array<{ sid: SourceId; file: File }> = []
 
-      for (const file of files) {
+      for (const file of processedFiles) {
         const sid = newId()
         newSources[sid] = {
           id: sid,

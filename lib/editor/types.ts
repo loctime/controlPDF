@@ -85,6 +85,7 @@ export interface OcrOp {
   scope: PageScope
   language: OCRLanguage
   dpi: number
+  mode?: "overlay" | "reconstruct"
 }
 
 export interface GlobalOps {

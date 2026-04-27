@@ -44,14 +44,19 @@ export function OcrModal({ open, onOpenChange }: Props) {
   )
   const [dpi, setDpi] = useState<number>(existing?.dpi ?? 200)
 
+  const [mode, setMode] = useState<"overlay" | "reconstruct">(
+    existing?.mode ?? "overlay"
+  )
+
   const reset = () => {
     setScope(existing?.scope ?? { kind: "all" })
     setLanguage(existing?.language ?? "spa")
     setDpi(existing?.dpi ?? 200)
+    setMode(existing?.mode ?? "overlay")
   }
 
   const save = () => {
-    const op: OcrOp = { enabled: true, scope, language, dpi }
+    const op: OcrOp = { enabled: true, scope, language, dpi, mode }
     setGlobalOp("ocr", op)
     onOpenChange(false)
   }
@@ -73,8 +78,8 @@ export function OcrModal({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>OCR (texto buscable)</DialogTitle>
           <DialogDescription>
-            Reconoce el texto de las páginas escaneadas y lo agrega como capa
-            invisible. Puede tardar varios segundos por página.
+            Reconoce el texto de las páginas escaneadas. Puede agregar una capa
+            invisible sobre la imagen original o reconstruir el documento.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -108,6 +113,21 @@ export function OcrModal({ open, onOpenChange }: Props) {
                 onChange={(e) => setDpi(parseInt(e.target.value, 10) || 200)}
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Modo de Conversión</Label>
+            <Select
+              value={mode}
+              onValueChange={(v) => setMode(v as "overlay" | "reconstruct")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="overlay">Capa oculta (Recomendado)</SelectItem>
+                <SelectItem value="reconstruct">Reconstrucción Visual (Solo texto visible)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter className="gap-2">

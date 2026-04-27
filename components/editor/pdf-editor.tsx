@@ -106,7 +106,7 @@ export function PdfEditor() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,image/png,image/jpeg,image/jpg"
         multiple
         onChange={(e) => {
           const picked = e.target.files ? Array.from(e.target.files) : []
