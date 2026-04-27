@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment } from "react"
+import { Fragment, useState } from "react"
 import {
   DndContext,
   PointerSensor,
@@ -19,6 +19,7 @@ import { useShallow } from "zustand/react/shallow"
 import { useEditorStore } from "@/lib/editor/store"
 import { PageCard } from "./page-card"
 import { GroupDivider } from "./group-divider"
+import { SignModal } from "./sign-modal"
 import type { GroupId, PageId } from "@/lib/editor/types"
 
 export function PageGrid() {
@@ -29,6 +30,7 @@ export function PageGrid() {
     })),
   )
   const reorderPages = useEditorStore((s) => s.reorderPages)
+  const [signingPageId, setSigningPageId] = useState<PageId | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -76,29 +78,39 @@ export function PageGrid() {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={pageIds} strategy={rectSortingStrategy}>
-        <div className="flex flex-wrap gap-3 justify-start items-start">
-          {items.map((it, i) =>
-            it.kind === "page" ? (
-              <PageCard key={it.id} pageId={it.id} />
-            ) : (
-              <Fragment key={`div-${it.groupId}-${i}`}>
-                <GroupDivider
-                  groupId={it.groupId}
-                  pageCount={it.count}
-                  isFirst={it.isFirst}
-                  isLast={it.isLast}
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={pageIds} strategy={rectSortingStrategy}>
+          <div className="flex flex-wrap gap-3 justify-start items-start">
+            {items.map((it, i) =>
+              it.kind === "page" ? (
+                <PageCard
+                  key={it.id}
+                  pageId={it.id}
+                  onSign={setSigningPageId}
                 />
-              </Fragment>
-            ),
-          )}
-        </div>
-      </SortableContext>
-    </DndContext>
+              ) : (
+                <Fragment key={`div-${it.groupId}-${i}`}>
+                  <GroupDivider
+                    groupId={it.groupId}
+                    pageCount={it.count}
+                    isFirst={it.isFirst}
+                    isLast={it.isLast}
+                  />
+                </Fragment>
+              ),
+            )}
+          </div>
+        </SortableContext>
+      </DndContext>
+      <SignModal
+        pageId={signingPageId}
+        onClose={() => setSigningPageId(null)}
+      />
+    </>
   )
 }

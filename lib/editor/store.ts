@@ -10,6 +10,7 @@ import type {
   GroupId,
   PageEntry,
   PageId,
+  PageSignature,
   SelectMode,
   SourceFile,
   SourceId,
@@ -45,6 +46,8 @@ interface EditorActions {
   moveGroup: (id: GroupId, direction: -1 | 1) => void
   setGlobalOp: <K extends GlobalOpKey>(key: K, op: NonNullable<GlobalOps[K]>) => void
   clearGlobalOp: (key: GlobalOpKey) => void
+  setPageSignature: (id: PageId, signature: PageSignature) => void
+  clearPageSignature: (id: PageId) => void
   undo: () => void
   redo: () => void
   canUndo: () => boolean
@@ -455,6 +458,27 @@ export const useEditorStore = create<Store>((set, get) => {
         }
       }
       set({ pages, groups, groupOrder })
+    },
+
+    setPageSignature: (id, signature) => {
+      const s = get()
+      const idx = s.pages.findIndex((p) => p.id === id)
+      if (idx === -1) return
+      pushHistory()
+      const next = [...s.pages]
+      next[idx] = { ...next[idx], signature }
+      set({ pages: next })
+    },
+
+    clearPageSignature: (id) => {
+      const s = get()
+      const idx = s.pages.findIndex((p) => p.id === id)
+      if (idx === -1 || !s.pages[idx].signature) return
+      pushHistory()
+      const next = [...s.pages]
+      const { signature: _, ...rest } = next[idx]
+      next[idx] = rest
+      set({ pages: next })
     },
 
     setGlobalOp: (key, op) => {

@@ -10,6 +10,13 @@ export interface SourceFile {
   error?: string
 }
 
+export interface PageSignature {
+  dataUrl: string
+  xRatio: number
+  yRatio: number
+  widthRatio: number
+}
+
 export interface PageEntry {
   id: PageId
   sourceId: SourceId
@@ -17,6 +24,7 @@ export interface PageEntry {
   rotation: number
   deleted: boolean
   groupId: GroupId | null
+  signature?: PageSignature
 }
 
 export interface Group {

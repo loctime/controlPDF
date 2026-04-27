@@ -341,6 +341,37 @@ async function applyOcr(
   }
 }
 
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const comma = dataUrl.indexOf(",")
+  const base64 = dataUrl.slice(comma + 1)
+  const binary = atob(base64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
+async function applySignatures(doc: PDFDocument, pages: PageEntry[]) {
+  const docPages = doc.getPages()
+  for (let i = 0; i < pages.length; i++) {
+    const sig = pages[i].signature
+    if (!sig) continue
+    const page = docPages[i]
+    if (!page) continue
+    const bytes = dataUrlToBytes(sig.dataUrl)
+    const isPng = sig.dataUrl.startsWith("data:image/png")
+    const image = isPng ? await doc.embedPng(bytes) : await doc.embedJpg(bytes)
+    const { width: pageWidth, height: pageHeight } = page.getSize()
+    const targetWidth = pageWidth * sig.widthRatio
+    const aspect = image.height / image.width
+    const targetHeight = targetWidth * aspect
+    const x = pageWidth * sig.xRatio
+    const yFromTop = pageHeight * sig.yRatio
+    const y = pageHeight - yFromTop - targetHeight
+    page.drawImage(image, { x, y, width: targetWidth, height: targetHeight })
+  }
+}
+
 async function buildSegment(
   segmentName: string,
   pages: PageEntry[],
@@ -385,6 +416,11 @@ async function buildSegment(
   if (ocr) {
     await applyOcr(ctx, ocr, ocrIndices)
   }
+
+  // Apply per-page signatures (image overlays). Done after raster ops so
+  // they remain crisp; before watermark/numbers so those still sit on top
+  // if user wants them above the signature.
+  await applySignatures(doc, pages)
 
   if (state.globalOps.watermark?.enabled) {
     const indices = resolveScopeIndices(
