@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState } from "react"
+import { Fragment, useState, useMemo } from "react"
 import {
   DndContext,
   PointerSensor,
@@ -15,7 +15,6 @@ import {
   rectSortingStrategy,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable"
-import { useShallow } from "zustand/react/shallow"
 import { useEditorStore } from "@/lib/editor/store"
 import { PageCard } from "./page-card"
 import { GroupDivider } from "./group-divider"
@@ -23,12 +22,13 @@ import { SignModal } from "./sign-modal"
 import type { GroupId, PageId } from "@/lib/editor/types"
 
 export function PageGrid() {
-  const layout = useEditorStore(
-    useShallow((s) => ({
-      pages: s.pages.map((p) => ({ id: p.id, groupId: p.groupId })),
-      groupOrder: s.groupOrder,
-    })),
-  )
+  const pages = useEditorStore((s) => s.pages)
+  const groupOrder = useEditorStore((s) => s.groupOrder)
+  
+  const layout = useMemo(() => ({
+    pages: pages.map((p) => ({ id: p.id, groupId: p.groupId })),
+    groupOrder,
+  }), [pages, groupOrder])
   const reorderPages = useEditorStore((s) => s.reorderPages)
   const [signingPageId, setSigningPageId] = useState<PageId | null>(null)
 

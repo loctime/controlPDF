@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,10 @@ export function SignModal({ pageId, onClose }: SignModalProps) {
   }
 
   const dataUrl = draftDataUrl ?? entry?.signature?.dataUrl ?? null
+
+  const handlePlacementChange = useCallback((p: PageSignature) => {
+    setDraftPlacement(p)
+  }, [])
 
   return (
     <Dialog
@@ -111,7 +115,7 @@ export function SignModal({ pageId, onClose }: SignModalProps) {
                   rotation={entry.rotation}
                   signatureDataUrl={dataUrl}
                   initialPlacement={draftPlacement ?? undefined}
-                  onChange={(p) => setDraftPlacement(p)}
+                  onChange={handlePlacementChange}
                 />
               )}
             </>
