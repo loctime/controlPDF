@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useEditorStore } from "@/lib/editor/store"
 import type { PageScope } from "@/lib/editor/types"
-import { useShallow } from "zustand/react/shallow"
 
 interface PageScopeSelectorProps {
   scope: PageScope
@@ -12,12 +11,9 @@ interface PageScopeSelectorProps {
 }
 
 export function PageScopeSelector({ scope, onChange }: PageScopeSelectorProps) {
-  const { visibleCount, currentSelectionIds } = useEditorStore(
-    useShallow((s) => ({
-      visibleCount: s.pages.filter((p) => !p.deleted).length,
-      currentSelectionIds: Array.from(s.selection.pageIds),
-    })),
-  )
+  const visibleCount = useEditorStore((s) => s.pages.filter((p) => !p.deleted).length)
+  const selectionSet = useEditorStore((s) => s.selection.pageIds)
+  const currentSelectionIds = Array.from(selectionSet)
 
   const set = (kind: PageScope["kind"]) => {
     if (kind === "all") onChange({ kind: "all" })
