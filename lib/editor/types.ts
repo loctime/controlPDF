@@ -29,6 +29,46 @@ export interface Selection {
   anchorId: PageId | null
 }
 
+export type PageScope =
+  | { kind: "all" }
+  | { kind: "selected"; pageIds: PageId[] }
+  | { kind: "range"; from: number; to: number }
+
+import type {
+  MetadataOptions,
+  PageNumberOptions,
+  ProtectOptions,
+  WatermarkOptions,
+} from "@/lib/pdf"
+
+export interface WatermarkOp {
+  enabled: boolean
+  scope: PageScope
+  opts: WatermarkOptions
+}
+export interface PageNumbersOp {
+  enabled: boolean
+  scope: PageScope
+  opts: PageNumberOptions
+}
+export interface ProtectOp {
+  enabled: boolean
+  opts: ProtectOptions
+}
+export interface MetadataOp {
+  enabled: boolean
+  opts: MetadataOptions
+}
+
+export interface GlobalOps {
+  watermark?: WatermarkOp
+  pageNumbers?: PageNumbersOp
+  protect?: ProtectOp
+  metadata?: MetadataOp
+}
+
+export type GlobalOpKey = keyof GlobalOps
+
 export interface EditorState {
   sources: Record<SourceId, SourceFile>
   sourceOrder: SourceId[]
@@ -36,6 +76,7 @@ export interface EditorState {
   groups: Record<GroupId, Group>
   groupOrder: GroupId[]
   selection: Selection
+  globalOps: GlobalOps
 }
 
 export type SelectMode = "single" | "toggle" | "range"

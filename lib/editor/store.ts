@@ -4,6 +4,8 @@ import { create } from "zustand"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
 import type {
   EditorState,
+  GlobalOpKey,
+  GlobalOps,
   Group,
   GroupId,
   PageEntry,
@@ -41,6 +43,8 @@ interface EditorActions {
   ungroupSelection: () => void
   assignSelectionToGroup: (groupId: GroupId) => void
   moveGroup: (id: GroupId, direction: -1 | 1) => void
+  setGlobalOp: <K extends GlobalOpKey>(key: K, op: NonNullable<GlobalOps[K]>) => void
+  clearGlobalOp: (key: GlobalOpKey) => void
   undo: () => void
   redo: () => void
   canUndo: () => boolean
@@ -59,6 +63,7 @@ const emptyState = (): EditorState => ({
   groups: {},
   groupOrder: [],
   selection: { pageIds: new Set(), anchorId: null },
+  globalOps: {},
 })
 
 const snapshot = (s: EditorState): SnapshotState => ({
@@ -67,6 +72,7 @@ const snapshot = (s: EditorState): SnapshotState => ({
   pages: s.pages,
   groups: s.groups,
   groupOrder: s.groupOrder,
+  globalOps: s.globalOps,
 })
 
 const newId = () => crypto.randomUUID()
@@ -451,6 +457,20 @@ export const useEditorStore = create<Store>((set, get) => {
       set({ pages, groups, groupOrder })
     },
 
+    setGlobalOp: (key, op) => {
+      pushHistory()
+      const s = get()
+      set({ globalOps: { ...s.globalOps, [key]: op } })
+    },
+
+    clearGlobalOp: (key) => {
+      const s = get()
+      if (!s.globalOps[key]) return
+      pushHistory()
+      const { [key]: _, ...rest } = s.globalOps
+      set({ globalOps: rest })
+    },
+
     moveGroup: (id, direction) => {
       const s = get()
       const idx = s.groupOrder.indexOf(id)
@@ -484,6 +504,7 @@ export const useEditorStore = create<Store>((set, get) => {
         pages: last.past.pages,
         groups: last.past.groups,
         groupOrder: last.past.groupOrder,
+        globalOps: last.past.globalOps,
         selection: { pageIds: new Set(), anchorId: null },
         history: s.history.slice(0, -1),
         future: [...s.future, present],
@@ -501,6 +522,7 @@ export const useEditorStore = create<Store>((set, get) => {
         pages: next.past.pages,
         groups: next.past.groups,
         groupOrder: next.past.groupOrder,
+        globalOps: next.past.globalOps,
         selection: { pageIds: new Set(), anchorId: null },
         history: [...s.history, present],
         future: s.future.slice(0, -1),

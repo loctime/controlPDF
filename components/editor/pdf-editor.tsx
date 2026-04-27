@@ -1,16 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 import { useEditorStore } from "@/lib/editor/store"
 import { EmptyState } from "./empty-state"
 import { PageGrid } from "./page-grid"
 import { SourceChipBar } from "./source-chip-bar"
 import { SelectionToolbar } from "./selection-toolbar"
-import { DownloadButton } from "./download-button"
-import { UndoRedo } from "./undo-redo"
+import { EditorToolbar } from "./editor-toolbar"
 
 const MAX_FILE_SIZE_MB = 100
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -119,29 +116,11 @@ export function PdfEditor() {
         className="sr-only"
         aria-label="Seleccionar archivos PDF"
       />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <UndoRedo isMac={isMac} />
-          <div className="h-5 w-px bg-border" />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Agregar PDF
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearAll}
-            className="text-muted-foreground"
-          >
-            <Trash2 className="h-4 w-4" />
-            Limpiar todo
-          </Button>
-        </div>
-        <DownloadButton />
-      </div>
+      <EditorToolbar
+        isMac={isMac}
+        onAddFiles={() => fileInputRef.current?.click()}
+        onClearAll={clearAll}
+      />
       <SourceChipBar />
       <div className="text-xs text-muted-foreground">
         {sourceCount} {sourceCount === 1 ? "archivo" : "archivos"} ·{" "}
