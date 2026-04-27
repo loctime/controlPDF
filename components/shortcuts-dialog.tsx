@@ -17,9 +17,14 @@ interface ShortcutsDialogProps {
 export function ShortcutsDialog({ open, onOpenChange, isMac }: ShortcutsDialogProps) {
   const mod = isMac ? "⌘" : "Ctrl"
   const items: Array<{ keys: string; label: string }> = [
-    { keys: `${mod} + Enter`, label: "Procesar archivo" },
     { keys: `${mod} + O`, label: "Abrir selector de archivos" },
-    { keys: "Esc", label: "Limpiar archivos cargados" },
+    { keys: `${mod} + A`, label: "Seleccionar todas las páginas" },
+    { keys: `${mod} + Z`, label: "Deshacer" },
+    { keys: `${mod} + Shift + Z`, label: "Rehacer" },
+    { keys: "Click", label: "Seleccionar página" },
+    { keys: "Shift + Click", label: "Seleccionar rango" },
+    { keys: `${mod} + Click`, label: "Toggle selección" },
+    { keys: "Esc", label: "Limpiar selección o todo" },
     { keys: "?", label: "Mostrar atajos" },
   ]
   return (
@@ -28,8 +33,7 @@ export function ShortcutsDialog({ open, onOpenChange, isMac }: ShortcutsDialogPr
         <DialogHeader>
           <DialogTitle>Atajos de teclado</DialogTitle>
           <DialogDescription>
-            Acelerá tu flujo de trabajo con estos atajos disponibles en cualquier
-            herramienta.
+            Acelerá tu flujo de trabajo con estos atajos del editor.
           </DialogDescription>
         </DialogHeader>
         <ul className="space-y-2">

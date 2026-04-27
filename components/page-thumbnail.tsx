@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Loader2, RotateCw, X, FileWarning } from "lucide-react"
+import { Copy, Loader2, RotateCw, X, FileWarning } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { renderThumbnail } from "@/lib/pdf"
 
@@ -12,9 +12,10 @@ export interface PageThumbnailProps {
   width?: number
   selected?: boolean
   removed?: boolean
-  onClick?: () => void
+  onClick?: (e: React.MouseEvent) => void
   onRotate?: () => void
   onRemove?: () => void
+  onDuplicate?: () => void
   className?: string
   lazy?: boolean
 }
@@ -29,6 +30,7 @@ export function PageThumbnail({
   onClick,
   onRotate,
   onRemove,
+  onDuplicate,
   className,
   lazy = true,
 }: PageThumbnailProps) {
@@ -86,7 +88,7 @@ export function PageThumbnail({
         if (!onClick) return
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault()
-          onClick()
+          onClick(e as unknown as React.MouseEvent)
         }
       }}
       className={cn(
@@ -121,7 +123,7 @@ export function PageThumbnail({
         ) : (
           <div className="h-full w-full" aria-hidden="true" />
         )}
-        {(onRotate || onRemove) && (
+        {(onRotate || onRemove || onDuplicate) && (
           <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             {onRotate && (
               <button
@@ -134,6 +136,19 @@ export function PageThumbnail({
                 className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
               >
                 <RotateCw className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onDuplicate && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDuplicate()
+                }}
+                aria-label={`Duplicar página ${pageNumber}`}
+                className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
+              >
+                <Copy className="h-3.5 w-3.5" />
               </button>
             )}
             {onRemove && (
