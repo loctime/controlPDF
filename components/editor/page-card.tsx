@@ -12,9 +12,10 @@ const THUMB_WIDTH = 200
 
 interface PageCardProps {
   pageId: PageId
+  onSign: (pageId: PageId) => void
 }
 
-export function PageCard({ pageId }: PageCardProps) {
+export function PageCard({ pageId, onSign }: PageCardProps) {
   const entry = useEditorStore((s) => s.pages.find((p) => p.id === pageId))
   const file = useEditorStore((s) =>
     entry ? s.sources[entry.sourceId]?.file ?? null : null,
@@ -69,8 +70,10 @@ export function PageCard({ pageId }: PageCardProps) {
         width={THUMB_WIDTH}
         selected={isSelected}
         removed={entry.deleted}
+        signed={!!entry.signature}
         onClick={handleClick}
         onRotate={entry.deleted ? undefined : () => rotatePage(pageId, 90)}
+        onSign={entry.deleted ? undefined : () => onSign(pageId)}
         onDuplicate={entry.deleted ? undefined : () => duplicatePage(pageId)}
         onRemove={entry.deleted ? undefined : () => deletePage(pageId)}
       />

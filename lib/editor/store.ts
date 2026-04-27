@@ -4,8 +4,13 @@ import { create } from "zustand"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
 import type {
   EditorState,
+  GlobalOpKey,
+  GlobalOps,
+  Group,
+  GroupId,
   PageEntry,
   PageId,
+  PageSignature,
   SelectMode,
   SourceFile,
   SourceId,
@@ -33,6 +38,16 @@ interface EditorActions {
   selectPage: (id: PageId, mode: SelectMode) => void
   clearSelection: () => void
   selectAll: () => void
+  createGroupFromSelection: (name?: string) => GroupId | null
+  renameGroup: (id: GroupId, name: string) => void
+  deleteGroup: (id: GroupId) => void
+  ungroupSelection: () => void
+  assignSelectionToGroup: (groupId: GroupId) => void
+  moveGroup: (id: GroupId, direction: -1 | 1) => void
+  setGlobalOp: <K extends GlobalOpKey>(key: K, op: NonNullable<GlobalOps[K]>) => void
+  clearGlobalOp: (key: GlobalOpKey) => void
+  setPageSignature: (id: PageId, signature: PageSignature) => void
+  clearPageSignature: (id: PageId) => void
   undo: () => void
   redo: () => void
   canUndo: () => boolean
@@ -48,18 +63,36 @@ const emptyState = (): EditorState => ({
   sources: {},
   sourceOrder: [],
   pages: [],
+  groups: {},
+  groupOrder: [],
   selection: { pageIds: new Set(), anchorId: null },
+  globalOps: {},
 })
 
 const snapshot = (s: EditorState): SnapshotState => ({
   sources: s.sources,
   sourceOrder: s.sourceOrder,
   pages: s.pages,
+  groups: s.groups,
+  groupOrder: s.groupOrder,
+  globalOps: s.globalOps,
 })
 
 const newId = () => crypto.randomUUID()
 
 const normalizeRotation = (r: number) => ((r % 360) + 360) % 360
+
+const inferGroupForPosition = (
+  pages: PageEntry[],
+  insertIndex: number,
+): GroupId | null => {
+  const before = pages[insertIndex - 1]
+  const after = pages[insertIndex]
+  if (before && after && before.groupId === after.groupId) return before.groupId
+  if (before) return before.groupId
+  if (after) return after.groupId
+  return null
+}
 
 export const useEditorStore = create<Store>((set, get) => {
   const pushHistory = () => {
@@ -83,7 +116,6 @@ export const useEditorStore = create<Store>((set, get) => {
       const s = get()
       const newSources: Record<SourceId, SourceFile> = { ...s.sources }
       const newOrder: SourceId[] = [...s.sourceOrder]
-      const newPages: PageEntry[] = [...s.pages]
       const pendingCounts: Array<{ sid: SourceId; file: File }> = []
 
       for (const file of files) {
@@ -97,7 +129,7 @@ export const useEditorStore = create<Store>((set, get) => {
         newOrder.push(sid)
         pendingCounts.push({ sid, file })
       }
-      set({ sources: newSources, sourceOrder: newOrder, pages: newPages })
+      set({ sources: newSources, sourceOrder: newOrder })
 
       pendingCounts.forEach(({ sid, file }) => {
         getPageCount(file)
@@ -116,6 +148,7 @@ export const useEditorStore = create<Store>((set, get) => {
                 sourcePageIndex: i,
                 rotation: 0,
                 deleted: false,
+                groupId: null,
               })
             }
             set({ sources, pages: [...cur.pages, ...entries] })
@@ -145,10 +178,26 @@ export const useEditorStore = create<Store>((set, get) => {
       )
       const pageIds = new Set(s.selection.pageIds)
       removedIds.forEach((pid) => pageIds.delete(pid))
+
+      // Drop any group that has no remaining pages
+      const survivingGroupIds = new Set(
+        pages.map((p) => p.groupId).filter((g): g is GroupId => g !== null),
+      )
+      const groups: Record<GroupId, Group> = {}
+      const groupOrder: GroupId[] = []
+      for (const gid of s.groupOrder) {
+        if (survivingGroupIds.has(gid)) {
+          groups[gid] = s.groups[gid]
+          groupOrder.push(gid)
+        }
+      }
+
       set({
         sources: rest,
         sourceOrder,
         pages,
+        groups,
+        groupOrder,
         selection: {
           pageIds,
           anchorId:
@@ -172,9 +221,13 @@ export const useEditorStore = create<Store>((set, get) => {
       const toIdx = s.pages.findIndex((p) => p.id === overId)
       if (fromIdx === -1 || toIdx === -1) return
       pushHistory()
-      const next = [...s.pages]
-      const [moved] = next.splice(fromIdx, 1)
-      next.splice(toIdx, 0, moved)
+      const without = s.pages.filter((_, i) => i !== fromIdx)
+      const insertIdx = without.findIndex((p) => p.id === overId)
+      const positionForInsert = fromIdx < toIdx ? insertIdx + 1 : insertIdx
+      const moved = s.pages[fromIdx]
+      const inferredGroup = inferGroupForPosition(without, positionForInsert)
+      const next = [...without]
+      next.splice(positionForInsert, 0, { ...moved, groupId: inferredGroup })
       set({ pages: next })
     },
 
@@ -260,7 +313,6 @@ export const useEditorStore = create<Store>((set, get) => {
         else pageIds.add(id)
         anchorId = id
       } else {
-        // range
         const anchor = cur.anchorId ?? id
         const a = visible.indexOf(anchor)
         const b = visible.indexOf(id)
@@ -285,6 +337,186 @@ export const useEditorStore = create<Store>((set, get) => {
       set({ selection: { pageIds: ids, anchorId: null } })
     },
 
+    createGroupFromSelection: (name?: string) => {
+      const s = get()
+      if (s.selection.pageIds.size === 0) return null
+      pushHistory()
+      const gid = newId()
+      const groupName = name ?? `Documento ${s.groupOrder.length + 1}`
+      const groups = { ...s.groups, [gid]: { id: gid, name: groupName } }
+      const groupOrder = [...s.groupOrder, gid]
+      const sel = s.selection.pageIds
+      // Move selected pages contiguously: keep their existing visual order,
+      // but cluster them at the position of the first selected page.
+      const selectedPages: PageEntry[] = []
+      const otherPages: PageEntry[] = []
+      let firstIdx = -1
+      s.pages.forEach((p, i) => {
+        if (sel.has(p.id)) {
+          if (firstIdx === -1) firstIdx = otherPages.length
+          selectedPages.push({ ...p, groupId: gid })
+        } else {
+          otherPages.push(p)
+        }
+      })
+      const insertAt = firstIdx === -1 ? otherPages.length : firstIdx
+      const pages = [
+        ...otherPages.slice(0, insertAt),
+        ...selectedPages,
+        ...otherPages.slice(insertAt),
+      ]
+      set({ groups, groupOrder, pages })
+      return gid
+    },
+
+    renameGroup: (id, name) => {
+      const s = get()
+      if (!s.groups[id]) return
+      const trimmed = name.trim()
+      if (!trimmed || trimmed === s.groups[id].name) return
+      pushHistory()
+      set({
+        groups: { ...s.groups, [id]: { ...s.groups[id], name: trimmed } },
+      })
+    },
+
+    deleteGroup: (id) => {
+      const s = get()
+      if (!s.groups[id]) return
+      pushHistory()
+      const { [id]: _, ...rest } = s.groups
+      const groupOrder = s.groupOrder.filter((g) => g !== id)
+      const pages = s.pages.map((p) => (p.groupId === id ? { ...p, groupId: null } : p))
+      set({ groups: rest, groupOrder, pages })
+    },
+
+    ungroupSelection: () => {
+      const s = get()
+      if (s.selection.pageIds.size === 0) return
+      pushHistory()
+      const sel = s.selection.pageIds
+      const pages = s.pages.map((p) => (sel.has(p.id) ? { ...p, groupId: null } : p))
+      // Drop any group that has no remaining pages
+      const survivingGroupIds = new Set(
+        pages.map((p) => p.groupId).filter((g): g is GroupId => g !== null),
+      )
+      const groups: Record<GroupId, Group> = {}
+      const groupOrder: GroupId[] = []
+      for (const gid of s.groupOrder) {
+        if (survivingGroupIds.has(gid)) {
+          groups[gid] = s.groups[gid]
+          groupOrder.push(gid)
+        }
+      }
+      set({ pages, groups, groupOrder })
+    },
+
+    assignSelectionToGroup: (groupId) => {
+      const s = get()
+      if (s.selection.pageIds.size === 0 || !s.groups[groupId]) return
+      pushHistory()
+      const sel = s.selection.pageIds
+      // Cluster selected pages contiguously among existing group members,
+      // appending after the last existing page of that group (or at the
+      // first selected position if the group has no other members yet).
+      const selectedPages: PageEntry[] = []
+      const otherPages: PageEntry[] = []
+      let firstSelectedIdx = -1
+      s.pages.forEach((p) => {
+        if (sel.has(p.id)) {
+          if (firstSelectedIdx === -1) firstSelectedIdx = otherPages.length
+          selectedPages.push({ ...p, groupId })
+        } else {
+          otherPages.push(p)
+        }
+      })
+      let lastGroupIdx = -1
+      otherPages.forEach((p, i) => {
+        if (p.groupId === groupId) lastGroupIdx = i
+      })
+      const insertAt =
+        lastGroupIdx >= 0
+          ? lastGroupIdx + 1
+          : firstSelectedIdx === -1
+            ? otherPages.length
+            : firstSelectedIdx
+      const pages = [
+        ...otherPages.slice(0, insertAt),
+        ...selectedPages,
+        ...otherPages.slice(insertAt),
+      ]
+      // Drop empty groups (in case selection emptied another group)
+      const survivingGroupIds = new Set(
+        pages.map((p) => p.groupId).filter((g): g is GroupId => g !== null),
+      )
+      const groups: Record<GroupId, Group> = {}
+      const groupOrder: GroupId[] = []
+      for (const gid of s.groupOrder) {
+        if (survivingGroupIds.has(gid)) {
+          groups[gid] = s.groups[gid]
+          groupOrder.push(gid)
+        }
+      }
+      set({ pages, groups, groupOrder })
+    },
+
+    setPageSignature: (id, signature) => {
+      const s = get()
+      const idx = s.pages.findIndex((p) => p.id === id)
+      if (idx === -1) return
+      pushHistory()
+      const next = [...s.pages]
+      next[idx] = { ...next[idx], signature }
+      set({ pages: next })
+    },
+
+    clearPageSignature: (id) => {
+      const s = get()
+      const idx = s.pages.findIndex((p) => p.id === id)
+      if (idx === -1 || !s.pages[idx].signature) return
+      pushHistory()
+      const next = [...s.pages]
+      const { signature: _, ...rest } = next[idx]
+      next[idx] = rest
+      set({ pages: next })
+    },
+
+    setGlobalOp: (key, op) => {
+      pushHistory()
+      const s = get()
+      set({ globalOps: { ...s.globalOps, [key]: op } })
+    },
+
+    clearGlobalOp: (key) => {
+      const s = get()
+      if (!s.globalOps[key]) return
+      pushHistory()
+      const { [key]: _, ...rest } = s.globalOps
+      set({ globalOps: rest })
+    },
+
+    moveGroup: (id, direction) => {
+      const s = get()
+      const idx = s.groupOrder.indexOf(id)
+      if (idx === -1) return
+      const target = idx + direction
+      if (target < 0 || target >= s.groupOrder.length) return
+      pushHistory()
+      const groupOrder = [...s.groupOrder]
+      const [moved] = groupOrder.splice(idx, 1)
+      groupOrder.splice(target, 0, moved)
+      // Re-cluster pages so visual order matches new groupOrder.
+      // Pages with groupId === null keep relative order at the start.
+      const ungrouped = s.pages.filter((p) => p.groupId === null)
+      const grouped: PageEntry[] = []
+      for (const gid of groupOrder) {
+        for (const p of s.pages) {
+          if (p.groupId === gid) grouped.push(p)
+        }
+      }
+      set({ groupOrder, pages: [...ungrouped, ...grouped] })
+    },
+
     undo: () => {
       const s = get()
       if (s.history.length === 0) return
@@ -294,6 +526,9 @@ export const useEditorStore = create<Store>((set, get) => {
         sources: last.past.sources,
         sourceOrder: last.past.sourceOrder,
         pages: last.past.pages,
+        groups: last.past.groups,
+        groupOrder: last.past.groupOrder,
+        globalOps: last.past.globalOps,
         selection: { pageIds: new Set(), anchorId: null },
         history: s.history.slice(0, -1),
         future: [...s.future, present],
@@ -309,6 +544,9 @@ export const useEditorStore = create<Store>((set, get) => {
         sources: next.past.sources,
         sourceOrder: next.past.sourceOrder,
         pages: next.past.pages,
+        groups: next.past.groups,
+        groupOrder: next.past.groupOrder,
+        globalOps: next.past.globalOps,
         selection: { pageIds: new Set(), anchorId: null },
         history: [...s.history, present],
         future: s.future.slice(0, -1),

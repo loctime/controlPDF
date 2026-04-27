@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Copy, Loader2, RotateCw, X, FileWarning } from "lucide-react"
+import { Copy, Loader2, PenTool, RotateCw, X, FileWarning } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { renderThumbnail } from "@/lib/pdf"
 
@@ -16,6 +16,8 @@ export interface PageThumbnailProps {
   onRotate?: () => void
   onRemove?: () => void
   onDuplicate?: () => void
+  onSign?: () => void
+  signed?: boolean
   className?: string
   lazy?: boolean
 }
@@ -31,6 +33,8 @@ export function PageThumbnail({
   onRotate,
   onRemove,
   onDuplicate,
+  onSign,
+  signed,
   className,
   lazy = true,
 }: PageThumbnailProps) {
@@ -123,7 +127,7 @@ export function PageThumbnail({
         ) : (
           <div className="h-full w-full" aria-hidden="true" />
         )}
-        {(onRotate || onRemove || onDuplicate) && (
+        {(onRotate || onRemove || onDuplicate || onSign) && (
           <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             {onRotate && (
               <button
@@ -136,6 +140,19 @@ export function PageThumbnail({
                 className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
               >
                 <RotateCw className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onSign && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSign()
+                }}
+                aria-label={`Firmar página ${pageNumber}`}
+                className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
+              >
+                <PenTool className="h-3.5 w-3.5" />
               </button>
             )}
             {onDuplicate && (
@@ -164,6 +181,15 @@ export function PageThumbnail({
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
+          </div>
+        )}
+        {signed && (
+          <div
+            className="absolute bottom-1 left-1 flex h-5 items-center gap-1 rounded-full bg-primary px-1.5 text-[10px] font-medium text-primary-foreground shadow"
+            title="Esta página tiene firma"
+          >
+            <PenTool className="h-3 w-3" />
+            <span>Firmada</span>
           </div>
         )}
       </div>
