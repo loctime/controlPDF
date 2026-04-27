@@ -23,6 +23,7 @@ import type { GroupId, PageId } from "@/lib/editor/types"
 export function PageGrid() {
   const pages = useEditorStore((s) => s.pages)
   const groupOrder = useEditorStore((s) => s.groupOrder)
+  const groups = useEditorStore((s) => s.groups)
   
   const layout = useMemo(() => ({
     pages: pages.map((p) => ({ id: p.id, groupId: p.groupId })),
@@ -83,7 +84,10 @@ export function PageGrid() {
                 )
               }
               return (
-                <div key={`group-${block.groupId}-${i}`} className="flex flex-wrap gap-3 border-[3px] border-blue-500 rounded-xl p-2 bg-blue-500/5">
+                <div key={`group-${block.groupId}-${i}`} className="relative flex flex-wrap gap-3 border-[3px] border-blue-500 rounded-xl p-3 pt-8 bg-blue-500/5 mt-4">
+                  <div className="absolute top-0 left-0 -mt-[3px] -ml-[3px] bg-blue-500 text-white px-3 py-0.5 rounded-br-lg rounded-tl-lg font-semibold text-xs shadow-sm">
+                    {groups[block.groupId as GroupId]?.name || "Grupo"}
+                  </div>
                   {block.pages.map(id => (
                     <PageCard key={id} pageId={id} onSign={setSigningPageId} />
                   ))}
