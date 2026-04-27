@@ -7,6 +7,12 @@ import { PageThumbnail } from "@/components/page-thumbnail"
 import { useEditorStore } from "@/lib/editor/store"
 import type { PageId } from "@/lib/editor/types"
 import { cn } from "@/lib/utils"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 
 const THUMB_WIDTH = 200
 
@@ -21,7 +27,7 @@ export function PageCard({ pageId, onSign }: PageCardProps) {
     entry ? s.sources[entry.sourceId]?.file ?? null : null,
   )
   const isSelected = useEditorStore((s) => s.selection.pageIds.has(pageId))
-  const { rotatePage, deletePage, restorePage, duplicatePage, selectPage } =
+  const { rotatePage, deletePage, restorePage, duplicatePage, selectPage, createGroupFromSelection } =
     useEditorStore(
       useShallow((s) => ({
         rotatePage: s.rotatePage,
@@ -29,6 +35,7 @@ export function PageCard({ pageId, onSign }: PageCardProps) {
         restorePage: s.restorePage,
         duplicatePage: s.duplicatePage,
         selectPage: s.selectPage,
+        createGroupFromSelection: s.createGroupFromSelection,
       })),
     )
 
@@ -53,30 +60,44 @@ export function PageCard({ pageId, onSign }: PageCardProps) {
   }
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={cn(
-        "touch-none focus:outline-none",
-        isDragging && "z-10 opacity-80",
-      )}
-    >
-      <PageThumbnail
-        file={file}
-        pageNumber={entry.sourcePageIndex + 1}
-        rotation={entry.rotation}
-        width={THUMB_WIDTH}
-        selected={isSelected}
-        removed={entry.deleted}
-        signed={!!entry.signature}
-        onClick={handleClick}
-        onRotate={entry.deleted ? undefined : () => rotatePage(pageId, 90)}
-        onSign={entry.deleted ? undefined : () => onSign(pageId)}
-        onDuplicate={entry.deleted ? undefined : () => duplicatePage(pageId)}
-        onRemove={entry.deleted ? undefined : () => deletePage(pageId)}
-      />
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={setNodeRef}
+          style={style}
+          {...attributes}
+          {...listeners}
+          className={cn(
+            "touch-none focus:outline-none",
+            isDragging && "z-10 opacity-80",
+          )}
+          onContextMenu={() => {
+            if (!isSelected) {
+              selectPage(pageId, "single")
+            }
+          }}
+        >
+          <PageThumbnail
+            file={file}
+            pageNumber={entry.sourcePageIndex + 1}
+            rotation={entry.rotation}
+            width={THUMB_WIDTH}
+            selected={isSelected}
+            removed={entry.deleted}
+            signed={!!entry.signature}
+            onClick={handleClick}
+            onRotate={entry.deleted ? undefined : () => rotatePage(pageId, 90)}
+            onSign={entry.deleted ? undefined : () => onSign(pageId)}
+            onDuplicate={entry.deleted ? undefined : () => duplicatePage(pageId)}
+            onRemove={entry.deleted ? undefined : () => deletePage(pageId)}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => createGroupFromSelection()}>
+          + Agrupar
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
