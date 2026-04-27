@@ -1,7 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { Droplet, Hash, Info, Lock, Trash2 } from "lucide-react"
+import {
+  Droplet,
+  FileImage,
+  Hash,
+  Info,
+  Lock,
+  Minimize2,
+  ScanText,
+  Trash2,
+} from "lucide-react"
 import { useShallow } from "zustand/react/shallow"
 import { Button } from "@/components/ui/button"
 import { useEditorStore } from "@/lib/editor/store"
@@ -13,6 +22,9 @@ import { WatermarkModal } from "./op-modal/watermark-modal"
 import { PageNumbersModal } from "./op-modal/page-numbers-modal"
 import { ProtectModal } from "./op-modal/protect-modal"
 import { MetadataModal } from "./op-modal/metadata-modal"
+import { CompressModal } from "./op-modal/compress-modal"
+import { ConvertModal } from "./op-modal/convert-modal"
+import { OcrModal } from "./op-modal/ocr-modal"
 
 interface EditorToolbarProps {
   isMac: boolean
@@ -31,6 +43,9 @@ export function EditorToolbar({
       pageNumbers: !!s.globalOps.pageNumbers,
       protect: !!s.globalOps.protect,
       metadata: !!s.globalOps.metadata,
+      compress: !!s.globalOps.compress,
+      convert: !!s.globalOps.convert,
+      ocr: !!s.globalOps.ocr,
     })),
   )
   const [open, setOpen] = useState<GlobalOpKey | null>(null)
@@ -67,6 +82,24 @@ export function EditorToolbar({
             onClick={() => setOpen("pageNumbers")}
           />
           <OpButton
+            label="Comprimir"
+            icon={Minimize2}
+            active={ops.compress}
+            onClick={() => setOpen("compress")}
+          />
+          <OpButton
+            label="A imagen"
+            icon={FileImage}
+            active={ops.convert}
+            onClick={() => setOpen("convert")}
+          />
+          <OpButton
+            label="OCR"
+            icon={ScanText}
+            active={ops.ocr}
+            onClick={() => setOpen("ocr")}
+          />
+          <OpButton
             label="Proteger"
             icon={Lock}
             active={ops.protect}
@@ -88,6 +121,18 @@ export function EditorToolbar({
       <PageNumbersModal
         open={open === "pageNumbers"}
         onOpenChange={(o) => setOpen(o ? "pageNumbers" : null)}
+      />
+      <CompressModal
+        open={open === "compress"}
+        onOpenChange={(o) => setOpen(o ? "compress" : null)}
+      />
+      <ConvertModal
+        open={open === "convert"}
+        onOpenChange={(o) => setOpen(o ? "convert" : null)}
+      />
+      <OcrModal
+        open={open === "ocr"}
+        onOpenChange={(o) => setOpen(o ? "ocr" : null)}
       />
       <ProtectModal
         open={open === "protect"}

@@ -35,7 +35,10 @@ export type PageScope =
   | { kind: "range"; from: number; to: number }
 
 import type {
+  CompressLevel,
+  ImageFormat,
   MetadataOptions,
+  OCRLanguage,
   PageNumberOptions,
   ProtectOptions,
   WatermarkOptions,
@@ -59,12 +62,31 @@ export interface MetadataOp {
   enabled: boolean
   opts: MetadataOptions
 }
+export interface CompressOp {
+  enabled: boolean
+  level: CompressLevel
+}
+export interface ConvertOp {
+  enabled: boolean
+  scope: PageScope
+  format: ImageFormat
+  dpi: number
+}
+export interface OcrOp {
+  enabled: boolean
+  scope: PageScope
+  language: OCRLanguage
+  dpi: number
+}
 
 export interface GlobalOps {
   watermark?: WatermarkOp
   pageNumbers?: PageNumbersOp
   protect?: ProtectOp
   metadata?: MetadataOp
+  compress?: CompressOp
+  convert?: ConvertOp
+  ocr?: OcrOp
 }
 
 export type GlobalOpKey = keyof GlobalOps

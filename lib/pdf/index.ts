@@ -12,7 +12,10 @@ export {
 export {
   getPageCount,
   releaseDocument,
+  renderPageToBlob,
+  renderPageToCanvas,
   renderThumbnail,
+  type RenderPageOptions,
   type ThumbnailOptions,
 } from "./preview"
 export { mergePDFs, type MergeInput } from "./merge"
