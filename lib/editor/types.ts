@@ -1,5 +1,6 @@
 export type SourceId = string
 export type PageId = string
+export type GroupId = string
 
 export interface SourceFile {
   id: SourceId
@@ -15,6 +16,12 @@ export interface PageEntry {
   sourcePageIndex: number
   rotation: number
   deleted: boolean
+  groupId: GroupId | null
+}
+
+export interface Group {
+  id: GroupId
+  name: string
 }
 
 export interface Selection {
@@ -26,6 +33,8 @@ export interface EditorState {
   sources: Record<SourceId, SourceFile>
   sourceOrder: SourceId[]
   pages: PageEntry[]
+  groups: Record<GroupId, Group>
+  groupOrder: GroupId[]
   selection: Selection
 }
 

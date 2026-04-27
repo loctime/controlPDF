@@ -1,22 +1,52 @@
 "use client"
 
-import { Copy, RotateCcw, RotateCw, Trash2, X } from "lucide-react"
+import {
+  Copy,
+  FolderMinus,
+  FolderPlus,
+  RotateCcw,
+  RotateCw,
+  Trash2,
+  X,
+} from "lucide-react"
 import { useShallow } from "zustand/react/shallow"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useEditorStore } from "@/lib/editor/store"
 
 export function SelectionToolbar() {
   const count = useEditorStore((s) => s.selection.pageIds.size)
-  const { rotateSelected, deleteSelected, clearSelection, duplicatePage, selection } =
-    useEditorStore(
-      useShallow((s) => ({
-        rotateSelected: s.rotateSelected,
-        deleteSelected: s.deleteSelected,
-        clearSelection: s.clearSelection,
-        duplicatePage: s.duplicatePage,
-        selection: s.selection,
-      })),
-    )
+  const groups = useEditorStore(
+    useShallow((s) => s.groupOrder.map((id) => s.groups[id]).filter(Boolean)),
+  )
+  const {
+    rotateSelected,
+    deleteSelected,
+    clearSelection,
+    duplicatePage,
+    selection,
+    createGroupFromSelection,
+    ungroupSelection,
+    assignSelectionToGroup,
+  } = useEditorStore(
+    useShallow((s) => ({
+      rotateSelected: s.rotateSelected,
+      deleteSelected: s.deleteSelected,
+      clearSelection: s.clearSelection,
+      duplicatePage: s.duplicatePage,
+      selection: s.selection,
+      createGroupFromSelection: s.createGroupFromSelection,
+      ungroupSelection: s.ungroupSelection,
+      assignSelectionToGroup: s.assignSelectionToGroup,
+    })),
+  )
 
   if (count === 0) return null
 
@@ -57,6 +87,42 @@ export function SelectionToolbar() {
         className="text-destructive hover:text-destructive"
       >
         <Trash2 className="h-4 w-4" />
+      </Button>
+      <div className="h-5 w-px bg-border mx-1" />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" aria-label="Agrupar selección">
+            <FolderPlus className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" side="top">
+          <DropdownMenuItem onClick={() => createGroupFromSelection()}>
+            Nuevo grupo
+          </DropdownMenuItem>
+          {groups.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Mover a grupo</DropdownMenuLabel>
+              {groups.map((g) => (
+                <DropdownMenuItem
+                  key={g.id}
+                  onClick={() => assignSelectionToGroup(g.id)}
+                >
+                  {g.name}
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={ungroupSelection}
+        aria-label="Quitar de grupo"
+        title="Quitar de grupo"
+      >
+        <FolderMinus className="h-4 w-4" />
       </Button>
       <div className="h-5 w-px bg-border mx-1" />
       <Button
