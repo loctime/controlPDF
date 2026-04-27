@@ -52,9 +52,7 @@ export default function PDFToolsPage() {
               Editor de PDF
             </h1>
           </div>
-          <p className="text-muted-foreground">
-            Subí, ordená, rotá y descargá. Tus archivos no salen del navegador.
-          </p>
+
         </header>
 
         <ErrorBoundary

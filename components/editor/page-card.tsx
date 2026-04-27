@@ -19,9 +19,10 @@ const THUMB_WIDTH = 200
 interface PageCardProps {
   pageId: PageId
   onSign: (pageId: PageId) => void
+  isOverlay?: boolean
 }
 
-export function PageCard({ pageId, onSign }: PageCardProps) {
+export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
   const entry = useEditorStore((s) => s.pages.find((p) => p.id === pageId))
   const file = useEditorStore((s) =>
     entry ? s.sources[entry.sourceId]?.file ?? null : null,
@@ -44,11 +45,18 @@ export function PageCard({ pageId, onSign }: PageCardProps) {
 
   if (!entry || !file) return null
 
-  const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-    width: THUMB_WIDTH,
-  }
+  const style: React.CSSProperties = isOverlay
+    ? {
+        width: THUMB_WIDTH,
+        cursor: "grabbing",
+        boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)",
+        zIndex: 50,
+      }
+    : {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        width: THUMB_WIDTH,
+      }
 
   const handleClick = (e: React.MouseEvent) => {
     if (entry.deleted) {
@@ -59,39 +67,46 @@ export function PageCard({ pageId, onSign }: PageCardProps) {
     selectPage(pageId, mode)
   }
 
+  const content = (
+    <div
+      ref={isOverlay ? undefined : setNodeRef}
+      style={style}
+      {...(isOverlay ? {} : attributes)}
+      {...(isOverlay ? {} : listeners)}
+      className={cn(
+        "touch-none focus:outline-none transition-opacity duration-200 rounded-lg",
+        !isOverlay && isDragging && "opacity-30",
+        isOverlay && "scale-105"
+      )}
+      onContextMenu={() => {
+        if (!isSelected) {
+          selectPage(pageId, "single")
+        }
+      }}
+    >
+      <PageThumbnail
+        file={file}
+        pageNumber={entry.sourcePageIndex + 1}
+        rotation={entry.rotation}
+        width={THUMB_WIDTH}
+        selected={isSelected}
+        removed={entry.deleted}
+        signed={!!entry.signature}
+        onClick={handleClick}
+        onRotate={entry.deleted ? undefined : () => rotatePage(pageId, 90)}
+        onSign={entry.deleted ? undefined : () => onSign(pageId)}
+        onDuplicate={entry.deleted ? undefined : () => duplicatePage(pageId)}
+        onRemove={entry.deleted ? undefined : () => deletePage(pageId)}
+      />
+    </div>
+  )
+
+  if (isOverlay) return content
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div
-          ref={setNodeRef}
-          style={style}
-          {...attributes}
-          {...listeners}
-          className={cn(
-            "touch-none focus:outline-none",
-            isDragging && "z-10 opacity-80",
-          )}
-          onContextMenu={() => {
-            if (!isSelected) {
-              selectPage(pageId, "single")
-            }
-          }}
-        >
-          <PageThumbnail
-            file={file}
-            pageNumber={entry.sourcePageIndex + 1}
-            rotation={entry.rotation}
-            width={THUMB_WIDTH}
-            selected={isSelected}
-            removed={entry.deleted}
-            signed={!!entry.signature}
-            onClick={handleClick}
-            onRotate={entry.deleted ? undefined : () => rotatePage(pageId, 90)}
-            onSign={entry.deleted ? undefined : () => onSign(pageId)}
-            onDuplicate={entry.deleted ? undefined : () => duplicatePage(pageId)}
-            onRemove={entry.deleted ? undefined : () => deletePage(pageId)}
-          />
-        </div>
+        {content}
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={() => createGroupFromSelection()}>

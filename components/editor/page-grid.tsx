@@ -8,6 +8,8 @@ import {
   closestCenter,
   useSensor,
   useSensors,
+  DragOverlay,
+  type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core"
 import {
@@ -31,16 +33,26 @@ export function PageGrid() {
   }), [pages, groupOrder])
   const reorderPages = useEditorStore((s) => s.reorderPages)
   const [signingPageId, setSigningPageId] = useState<PageId | null>(null)
+  const [activeId, setActiveId] = useState<PageId | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id) as PageId)
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
     reorderPages(String(active.id), String(over.id))
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
   }
 
   const pageIds: PageId[] = layout.pages.map((p) => p.id)
@@ -69,22 +81,24 @@ export function PageGrid() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
         <SortableContext items={pageIds} strategy={rectSortingStrategy}>
           <div className="flex flex-wrap gap-3 justify-start items-start">
             {blocks.map((block, i) => {
               if (block.groupId === null) {
                 return (
-                  <Fragment key={`ungrouped-${i}`}>
+                  <div key={`ungrouped-${i}`} className="flex flex-wrap gap-3 pt-[35px]">
                     {block.pages.map(id => (
                       <PageCard key={id} pageId={id} onSign={setSigningPageId} />
                     ))}
-                  </Fragment>
+                  </div>
                 )
               }
               return (
-                <div key={`group-${block.groupId}-${i}`} className="relative flex flex-wrap gap-3 border-[3px] border-blue-500 rounded-xl p-3 pt-8 bg-blue-500/5 mt-4">
+                <div key={`group-${block.groupId}-${i}`} className="relative flex flex-wrap gap-3 border-[3px] border-blue-500 rounded-xl p-3 pt-8 bg-blue-500/5 min-w-[220px]">
                   <div className="absolute top-0 left-0 -mt-[3px] -ml-[3px] bg-blue-500 text-white px-3 py-0.5 rounded-br-lg rounded-tl-lg font-semibold text-xs shadow-sm">
                     {groups[block.groupId as GroupId]?.name || "Grupo"}
                   </div>
@@ -96,6 +110,11 @@ export function PageGrid() {
             })}
           </div>
         </SortableContext>
+        <DragOverlay>
+          {activeId ? (
+            <PageCard pageId={activeId} onSign={setSigningPageId} isOverlay />
+          ) : null}
+        </DragOverlay>
       </DndContext>
       <SignModal
         pageId={signingPageId}
