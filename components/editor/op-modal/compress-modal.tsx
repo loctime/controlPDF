@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Label } from "@/components/ui/label"
 import type { CompressLevel } from "@/lib/pdf"
 import { useEditorStore } from "@/lib/editor/store"
@@ -96,14 +97,35 @@ export function CompressModal({ open, onOpenChange }: Props) {
         </div>
         <DialogFooter className="gap-2">
           {existing && (
-            <Button variant="ghost" onClick={remove} className="mr-auto">
-              Quitar compresión
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" onClick={remove} className="mr-auto">
+                  Quitar compresión
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Eliminar la compresión actual</p>
+              </TooltipContent>
+            </Tooltip>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={save}>{existing ? "Guardar" : "Aplicar"}</Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Cerrar sin aplicar cambios</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={save}>{existing ? "Guardar" : "Aplicar"}</Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{existing ? "Guardar cambios" : "Aplicar compresión"}</p>
+            </TooltipContent>
+          </Tooltip>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Copy, Loader2, PenTool, RotateCw, X, FileWarning } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { renderThumbnail } from "@/lib/pdf"
 
 export interface PageThumbnailProps {
@@ -130,56 +131,84 @@ export function PageThumbnail({
         {(onRotate || onRemove || onDuplicate || onSign) && (
           <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             {onRotate && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRotate()
-                }}
-                aria-label={`Rotar página ${pageNumber}`}
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
-              >
-                <RotateCw className="h-3.5 w-3.5" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRotate()
+                    }}
+                    aria-label={`Rotar página ${pageNumber}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
+                  >
+                    <RotateCw className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Rotar página</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             {onSign && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSign()
-                }}
-                aria-label={`Firmar página ${pageNumber}`}
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
-              >
-                <PenTool className="h-3.5 w-3.5" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSign()
+                    }}
+                    aria-label={`Firmar página ${pageNumber}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
+                  >
+                    <PenTool className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Firmar página</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             {onDuplicate && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDuplicate()
-                }}
-                aria-label={`Duplicar página ${pageNumber}`}
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDuplicate()
+                    }}
+                    aria-label={`Duplicar página ${pageNumber}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Duplicar página</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             {onRemove && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRemove()
-                }}
-                aria-label={`Quitar página ${pageNumber}`}
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRemove()
+                    }}
+                    aria-label={`Quitar página ${pageNumber}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Eliminar página</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         )}

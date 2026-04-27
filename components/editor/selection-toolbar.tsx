@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { useShallow } from "zustand/react/shallow"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,41 +61,76 @@ export function SelectionToolbar() {
         {count} {count === 1 ? "página" : "páginas"}
       </span>
       <div className="h-5 w-px bg-border mx-1" />
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => rotateSelected(-90)}
-        aria-label="Rotar selección -90°"
-      >
-        <RotateCcw className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => rotateSelected(90)}
-        aria-label="Rotar selección +90°"
-      >
-        <RotateCw className="h-4 w-4" />
-      </Button>
-      <Button variant="ghost" size="sm" onClick={handleDuplicate} aria-label="Duplicar selección">
-        <Copy className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={deleteSelected}
-        aria-label="Eliminar selección"
-        className="text-destructive hover:text-destructive"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => rotateSelected(-90)}
+            aria-label="Rotar selección -90°"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Rotar páginas -90°</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => rotateSelected(90)}
+            aria-label="Rotar selección +90°"
+          >
+            <RotateCw className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Rotar páginas +90°</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="sm" onClick={handleDuplicate} aria-label="Duplicar selección">
+            <Copy className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Duplicar páginas seleccionadas</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={deleteSelected}
+            aria-label="Eliminar selección"
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Eliminar páginas seleccionadas</p>
+        </TooltipContent>
+      </Tooltip>
       <div className="h-5 w-px bg-border mx-1" />
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" aria-label="Agrupar selección">
-            <FolderPlus className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" aria-label="Agrupar selección">
+                <FolderPlus className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Crear o mover a grupo</p>
+          </TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="center" side="top">
           <DropdownMenuItem onClick={() => createGroupFromSelection()}>
             Nuevo grupo
@@ -115,24 +151,37 @@ export function SelectionToolbar() {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={ungroupSelection}
-        aria-label="Quitar de grupo"
-        title="Quitar de grupo"
-      >
-        <FolderMinus className="h-4 w-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={ungroupSelection}
+            aria-label="Quitar de grupo"
+          >
+            <FolderMinus className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Quitar páginas del grupo actual</p>
+        </TooltipContent>
+      </Tooltip>
       <div className="h-5 w-px bg-border mx-1" />
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={clearSelection}
-        aria-label="Limpiar selección"
-      >
-        <X className="h-4 w-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearSelection}
+            aria-label="Limpiar selección"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Deseleccionar todas las páginas</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   )
 }

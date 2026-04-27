@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEditorStore } from "@/lib/editor/store"
 import type { PageId, PageSignature } from "@/lib/editor/types"
 import { SignatureCreator } from "./signature-creator"
@@ -97,16 +98,23 @@ export function SignModal({ pageId, onClose }: SignModalProps) {
                 <span className="text-sm text-muted-foreground">
                   Firma lista. Arrastrala sobre la página.
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setDraftDataUrl(null)
-                    setDraftPlacement(null)
-                  }}
-                >
-                  Cambiar firma
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setDraftDataUrl(null)
+                        setDraftPlacement(null)
+                      }}
+                    >
+                      Cambiar firma
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Crear una nueva firma diferente</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               {file && entry && (
                 <SignPlacement
@@ -123,19 +131,40 @@ export function SignModal({ pageId, onClose }: SignModalProps) {
         </div>
         <DialogFooter className="gap-2">
           {entry?.signature && (
-            <Button variant="ghost" onClick={remove} className="mr-auto">
-              Quitar firma
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" onClick={remove} className="mr-auto">
+                  Quitar firma
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Eliminar la firma actual de esta página</p>
+              </TooltipContent>
+            </Tooltip>
           )}
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={save}
-            disabled={!draftDataUrl || !draftPlacement}
-          >
-            Guardar firma
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Cerrar sin guardar los cambios</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={save}
+                disabled={!draftDataUrl || !draftPlacement}
+              >
+                Guardar firma
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Guardar la firma y su posición en la página</p>
+            </TooltipContent>
+          </Tooltip>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -171,16 +172,37 @@ export function WatermarkModal({ open, onOpenChange }: Props) {
         </div>
         <DialogFooter className="gap-2">
           {existing && (
-            <Button variant="ghost" onClick={remove} className="mr-auto">
-              Quitar marca de agua
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" onClick={remove} className="mr-auto">
+                  Quitar marca de agua
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Eliminar la marca de agua actual</p>
+              </TooltipContent>
+            </Tooltip>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={save} disabled={!opts.text.trim()}>
-            {existing ? "Guardar" : "Aplicar"}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Cerrar sin aplicar cambios</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={save} disabled={!opts.text.trim()}>
+                {existing ? "Guardar" : "Aplicar"}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{existing ? "Guardar cambios" : "Aplicar marca de agua"}</p>
+            </TooltipContent>
+          </Tooltip>
         </DialogFooter>
       </DialogContent>
     </Dialog>

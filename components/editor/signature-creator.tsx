@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Eraser, Type, Upload } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { renderTextSignatureToDataUrl } from "@/lib/pdf"
@@ -128,12 +129,26 @@ function DrawTab({ onCreated }: { onCreated: (dataUrl: string) => void }) {
         />
       </div>
       <div className="flex justify-between gap-2">
-        <Button variant="ghost" size="sm" onClick={clear}>
-          Limpiar
-        </Button>
-        <Button size="sm" onClick={submit} disabled={!hasInk}>
-          Usar firma
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="sm" onClick={clear}>
+              Limpiar
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Borrar todo y empezar de nuevo</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="sm" onClick={submit} disabled={!hasInk}>
+              Usar firma
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Usar este dibujo como firma</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   )
@@ -177,13 +192,20 @@ function TypeTab({ onCreated }: { onCreated: (dataUrl: string) => void }) {
         )}
       </div>
       <div className="flex justify-end">
-        <Button
-          size="sm"
-          onClick={() => preview && onCreated(preview)}
-          disabled={!preview}
-        >
-          Usar firma
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              onClick={() => preview && onCreated(preview)}
+              disabled={!preview}
+            >
+              Usar firma
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Usar este texto como firma</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   )
@@ -229,13 +251,20 @@ function UploadTab({ onCreated }: { onCreated: (dataUrl: string) => void }) {
         )}
       </div>
       <div className="flex justify-end">
-        <Button
-          size="sm"
-          onClick={() => preview && onCreated(preview)}
-          disabled={!preview}
-        >
-          Usar firma
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              onClick={() => preview && onCreated(preview)}
+              disabled={!preview}
+            >
+              Usar firma
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Usar esta imagen como firma</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   )

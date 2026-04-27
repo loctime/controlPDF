@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, forwardRef } from "react"
 import {
   Droplet,
   FileImage,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { useShallow } from "zustand/react/shallow"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEditorStore } from "@/lib/editor/store"
 import { cn } from "@/lib/utils"
 import type { GlobalOpKey } from "@/lib/editor/types"
@@ -56,61 +57,124 @@ export function EditorToolbar({
         <div className="flex flex-wrap items-center gap-1">
           <UndoRedo isMac={isMac} />
           <Divider />
-          <Button variant="ghost" size="sm" onClick={onAddFiles}>
-            Agregar PDF
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearAll}
-            className="text-muted-foreground"
-          >
-            <Trash2 className="h-4 w-4" />
-            Limpiar
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={onAddFiles}>
+                Agregar PDF
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Agregar nuevos archivos PDF al editor</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearAll}
+                className="text-muted-foreground"
+              >
+                <Trash2 className="h-4 w-4" />
+                Limpiar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Eliminar todos los archivos del editor</p>
+            </TooltipContent>
+          </Tooltip>
           <Divider />
-          <OpButton
-            label="Marca de agua"
-            icon={Droplet}
-            active={ops.watermark}
-            onClick={() => setOpen("watermark")}
-          />
-          <OpButton
-            label="Numerar"
-            icon={Hash}
-            active={ops.pageNumbers}
-            onClick={() => setOpen("pageNumbers")}
-          />
-          <OpButton
-            label="Comprimir"
-            icon={Minimize2}
-            active={ops.compress}
-            onClick={() => setOpen("compress")}
-          />
-          <OpButton
-            label="A imagen"
-            icon={FileImage}
-            active={ops.convert}
-            onClick={() => setOpen("convert")}
-          />
-          <OpButton
-            label="OCR"
-            icon={ScanText}
-            active={ops.ocr}
-            onClick={() => setOpen("ocr")}
-          />
-          <OpButton
-            label="Proteger"
-            icon={Lock}
-            active={ops.protect}
-            onClick={() => setOpen("protect")}
-          />
-          <OpButton
-            label="Metadatos"
-            icon={Info}
-            active={ops.metadata}
-            onClick={() => setOpen("metadata")}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <OpButton
+                label="Marca de agua"
+                icon={Droplet}
+                active={ops.watermark}
+                onClick={() => setOpen("watermark")}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Agregar marca de agua a las páginas</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <OpButton
+                label="Numerar"
+                icon={Hash}
+                active={ops.pageNumbers}
+                onClick={() => setOpen("pageNumbers")}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Agregar números de página</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <OpButton
+                label="Comprimir"
+                icon={Minimize2}
+                active={ops.compress}
+                onClick={() => setOpen("compress")}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Reducir el tamaño del archivo PDF</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <OpButton
+                label="A imagen"
+                icon={FileImage}
+                active={ops.convert}
+                onClick={() => setOpen("convert")}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Convertir páginas a imágenes</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <OpButton
+                label="OCR"
+                icon={ScanText}
+                active={ops.ocr}
+                onClick={() => setOpen("ocr")}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Reconocer texto en las páginas</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <OpButton
+                label="Proteger"
+                icon={Lock}
+                active={ops.protect}
+                onClick={() => setOpen("protect")}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Agregar contraseña y permisos</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <OpButton
+                label="Metadatos"
+                icon={Info}
+                active={ops.metadata}
+                onClick={() => setOpen("metadata")}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Editar información del documento</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <DownloadButton />
       </div>
@@ -150,24 +214,23 @@ function Divider() {
   return <div className="h-5 w-px bg-border mx-1" />
 }
 
-function OpButton({
-  label,
-  icon: Icon,
-  active,
-  onClick,
-}: {
-  label: string
-  icon: typeof Droplet
-  active: boolean
-  onClick: () => void
-}) {
+const OpButton = forwardRef<
+  HTMLButtonElement,
+  {
+    label: string
+    icon: typeof Droplet
+    active: boolean
+    onClick: () => void
+  }
+>(({ label, icon: Icon, active, onClick, ...props }, ref) => {
   return (
     <Button
+      ref={ref}
       variant="ghost"
       size="sm"
       onClick={onClick}
       className={cn("relative", active && "text-primary")}
-      title={label}
+      {...props}
     >
       <Icon className="h-4 w-4" />
       <span className="hidden md:inline">{label}</span>
@@ -176,4 +239,5 @@ function OpButton({
       )}
     </Button>
   )
-}
+})
+OpButton.displayName = "OpButton"

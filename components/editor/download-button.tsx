@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { Download, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEditorStore } from "@/lib/editor/store"
 import { exportEditor, exportZipName } from "@/lib/editor/export"
 import type { ExportProgress } from "@/lib/editor/export"
@@ -81,14 +82,27 @@ export function DownloadButton() {
 
   return (
     <>
-      <Button onClick={handleClick} disabled={busy || visibleCount === 0} size="sm">
-        {busy ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Download className="h-4 w-4" />
-        )}
-        {label}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button onClick={handleClick} disabled={busy || visibleCount === 0} size="sm">
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {label}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>
+            {visibleCount === 0
+              ? "No hay páginas para descargar"
+              : groupCount > 0 || convertEnabled
+              ? "Descargar todos los archivos como ZIP"
+              : "Descargar el PDF editado"}
+          </p>
+        </TooltipContent>
+      </Tooltip>
       <ExportProgressDialog
         open={busy}
         progress={progress}

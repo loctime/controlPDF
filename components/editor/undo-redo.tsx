@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { Redo2, Undo2 } from "lucide-react"
 import { useShallow } from "zustand/react/shallow"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useEditorStore } from "@/lib/editor/store"
 
 interface UndoRedoProps {
@@ -49,26 +50,38 @@ export function UndoRedo({ isMac }: UndoRedoProps) {
 
   return (
     <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={undo}
-        disabled={!canUndo}
-        aria-label="Deshacer"
-        title={`Deshacer (${isMac ? "⌘" : "Ctrl"}+Z)`}
-      >
-        <Undo2 className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={redo}
-        disabled={!canRedo}
-        aria-label="Rehacer"
-        title={`Rehacer (${isMac ? "⌘" : "Ctrl"}+Shift+Z)`}
-      >
-        <Redo2 className="h-4 w-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={undo}
+            disabled={!canUndo}
+            aria-label="Deshacer"
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Deshacer ({isMac ? "⌘" : "Ctrl"}+Z)</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={redo}
+            disabled={!canRedo}
+            aria-label="Rehacer"
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Rehacer ({isMac ? "⌘" : "Ctrl"}+Shift+Z)</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   )
 }
