@@ -85,7 +85,7 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
           scope: { kind: "all" as const },
           language: currentState.globalOps.ocr?.language ?? "spa",
           dpi: currentState.globalOps.ocr?.dpi ?? 200,
-          mode: "reconstruct" as const,
+          mode: "overlay" as const,
         },
       },
     }
@@ -93,11 +93,11 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
     toast.promise(
       exportEditor(tempState).then((result) => {
         const fileBaseName = file?.name.replace(/\.pdf$/i, "") ?? "documento"
-        const finalName = `${fileBaseName}-pag${entry.sourcePageIndex + 1}-texto.pdf`
+        const finalName = `${fileBaseName}-pag${entry.sourcePageIndex + 1}-ocr.pdf`
         downloadBytes(result.pdfs[0].bytes, finalName)
       }),
       {
-        loading: "Procesando página con OCR (Reconstrucción)...",
+        loading: "Procesando página con OCR (Capa Oculta)...",
         success: "Descarga completada",
         error: "Error al procesar",
       }
@@ -151,7 +151,7 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={handleDownloadAsText}>
-          Descargar como PDF con texto
+          Descargar con OCR (Capa Oculta)
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
