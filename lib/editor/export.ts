@@ -254,6 +254,8 @@ async function applyCompress(
   }
 }
 
+import { toast } from "sonner"
+
 async function applyOcr(
   ctx: SegmentContext,
   op: OcrOp,
@@ -290,13 +292,25 @@ async function applyOcr(
         )
       })
       const imageBytes = new Uint8Array(await blob.arrayBuffer())
-      const { data } = await worker.recognize(blob)
+      const { data } = await worker.recognize(canvas, {}, { blocks: true })
 
       const pdfWidth = canvas.width / scale
       const pdfHeight = canvas.height / scale
       ctx.doc.removePage(idx)
       const newPage = ctx.doc.insertPage(idx, [pdfWidth, pdfHeight])
       const isReconstruct = op.mode === "reconstruct"
+
+      const blocks = data.blocks ?? []
+      let wordCount = 0
+      for (const b of blocks) {
+        for (const p of b.paragraphs ?? []) {
+          for (const l of p.lines ?? []) {
+            wordCount += (l.words ?? []).length
+          }
+        }
+      }
+      
+      toast.info(`OCR Stats: ${blocks.length} bloques, ${wordCount} palabras. isReconstruct: ${isReconstruct}`)
 
       if (!isReconstruct) {
         const image = await ctx.doc.embedPng(imageBytes)
@@ -308,58 +322,68 @@ async function applyOcr(
         })
       }
 
-      const blocks = data.blocks ?? []
-      for (const block of blocks) {
-        const type = String(block.blocktype || "").toUpperCase()
-        const isImageOrLine = type.includes("IMAGE") || type.includes("LINE")
+      // Draw images or lines if reconstructed
+      if (isReconstruct) {
+        for (const block of blocks) {
+          const type = String(block.blocktype || "").toUpperCase()
+          const isImageOrLine = type.includes("IMAGE") || type.includes("LINE")
 
-        if (isReconstruct && isImageOrLine && block.bbox) {
-          const { x0, y0, x1, y1 } = block.bbox
-          const w = x1 - x0
-          const h = y1 - y0
-          if (w > 0 && h > 0) {
-            const tempCanvas = document.createElement("canvas")
-            tempCanvas.width = w
-            tempCanvas.height = h
-            const ctx2d = tempCanvas.getContext("2d")
-            if (ctx2d) {
-              ctx2d.drawImage(canvas, x0, y0, w, h, 0, 0, w, h)
-              const cropBlob: Blob = await new Promise((res, rej) =>
-                tempCanvas.toBlob((b) => (b ? res(b) : rej(new Error("crop"))), "image/png")
-              )
-              const cropBytes = new Uint8Array(await cropBlob.arrayBuffer())
-              const cropImage = await ctx.doc.embedPng(cropBytes)
-              newPage.drawImage(cropImage, {
-                x: x0 / scale,
-                y: pdfHeight - y1 / scale,
-                width: w / scale,
-                height: h / scale,
-              })
+          if (isImageOrLine && block.bbox) {
+            const { x0, y0, x1, y1 } = block.bbox
+            const w = x1 - x0
+            const h = y1 - y0
+            if (w > 0 && h > 0) {
+              const tempCanvas = document.createElement("canvas")
+              tempCanvas.width = w
+              tempCanvas.height = h
+              const ctx2d = tempCanvas.getContext("2d")
+              if (ctx2d) {
+                ctx2d.drawImage(canvas, x0, y0, w, h, 0, 0, w, h)
+                try {
+                  const cropBlob: Blob = await new Promise((res, rej) =>
+                    tempCanvas.toBlob((b) => (b ? res(b) : rej(new Error("crop"))), "image/png")
+                  )
+                  const cropBytes = new Uint8Array(await cropBlob.arrayBuffer())
+                  const cropImage = await ctx.doc.embedPng(cropBytes)
+                  newPage.drawImage(cropImage, {
+                    x: x0 / scale,
+                    y: pdfHeight - y1 / scale,
+                    width: w / scale,
+                    height: h / scale,
+                  })
+                } catch (e) {
+                  // ignore crop errors
+                }
+              }
             }
           }
-        } else {
-          for (const para of block.paragraphs ?? []) {
-            for (const line of para.lines ?? []) {
-              for (const w of line.words ?? []) {
-                if (!w.text) continue
-                const sanitized = w.text.replace(/[^\x20-\x7E -ÿ]/g, "")
-                if (!sanitized) continue
-                const x = w.bbox.x0 / scale
-                const y = pdfHeight - w.bbox.y1 / scale
-                const heightPx = w.bbox.y1 - w.bbox.y0
-                const fontHeight = Math.max(4, (heightPx / scale) * 0.85)
-                try {
-                  newPage.drawText(sanitized, {
-                    x,
-                    y,
-                    size: fontHeight,
-                    font,
-                    color: rgb(0, 0, 0),
-                    opacity: isReconstruct ? 1 : 0,
-                  })
-                } catch {
-                  // glyph not in Helvetica; skip
-                }
+        }
+      }
+
+      // Draw text words
+      for (const block of blocks) {
+        for (const para of block.paragraphs ?? []) {
+          for (const line of para.lines ?? []) {
+            for (const w of line.words ?? []) {
+              if (!w.text) continue
+              // Remove only non-printable control characters
+              const sanitized = w.text.replace(/[\x00-\x1F\x7F]/g, "").trim()
+              if (!sanitized) continue
+              const x = w.bbox.x0 / scale
+              const y = pdfHeight - w.bbox.y1 / scale
+              const heightPx = w.bbox.y1 - w.bbox.y0
+              const fontHeight = Math.max(4, (heightPx / scale) * 0.85)
+              try {
+                newPage.drawText(sanitized, {
+                  x,
+                  y,
+                  size: fontHeight,
+                  font,
+                  color: rgb(0, 0, 0),
+                  opacity: isReconstruct ? 1 : 0,
+                })
+              } catch {
+                // glyph not in Helvetica; skip
               }
             }
           }

@@ -11,8 +11,12 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { toast } from "sonner"
+import { exportEditor } from "@/lib/editor/export"
+import { downloadBytes } from "@/lib/pdf"
 
 const THUMB_WIDTH = 200
 
@@ -67,6 +71,39 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
     selectPage(pageId, mode)
   }
 
+  const handleDownloadAsText = async () => {
+    const currentState = useEditorStore.getState()
+    const tempState = {
+      ...currentState,
+      pages: [entry],
+      groups: {},
+      groupOrder: [],
+      selection: { pageIds: new Set<PageId>(), anchorId: null },
+      globalOps: {
+        ocr: {
+          enabled: true,
+          scope: { kind: "all" as const },
+          language: currentState.globalOps.ocr?.language ?? "spa",
+          dpi: currentState.globalOps.ocr?.dpi ?? 200,
+          mode: "reconstruct" as const,
+        },
+      },
+    }
+
+    toast.promise(
+      exportEditor(tempState).then((result) => {
+        const fileBaseName = file?.name.replace(/\.pdf$/i, "") ?? "documento"
+        const finalName = `${fileBaseName}-pag${entry.sourcePageIndex + 1}-texto.pdf`
+        downloadBytes(result.pdfs[0].bytes, finalName)
+      }),
+      {
+        loading: "Procesando página con OCR (Reconstrucción)...",
+        success: "Descarga completada",
+        error: "Error al procesar",
+      }
+    )
+  }
+
   const content = (
     <div
       ref={isOverlay ? undefined : setNodeRef}
@@ -111,6 +148,10 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
       <ContextMenuContent>
         <ContextMenuItem onClick={() => createGroupFromSelection()}>
           + Agrupar
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={handleDownloadAsText}>
+          Descargar como PDF con texto
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
