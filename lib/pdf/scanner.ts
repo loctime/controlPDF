@@ -539,7 +539,7 @@ export function detectDocumentCorners(
   canvas: HTMLCanvasElement,
 ): Point[] | null {
   const DETECT_W = 400
-  const DETECT_H = 300
+  const DETECT_H = Math.round(canvas.height * (DETECT_W / canvas.width))
   const TOTAL = DETECT_W * DETECT_H
   const scaleX = canvas.width / DETECT_W
   const scaleY = canvas.height / DETECT_H

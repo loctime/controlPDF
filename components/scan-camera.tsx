@@ -216,7 +216,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
           autoPlay
           playsInline
           muted
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain bg-black"
           style={{ display: cameraState === "streaming" ? "block" : "none" }}
         />
         <canvas
