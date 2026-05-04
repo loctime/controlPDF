@@ -124,7 +124,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
       const video = videoRef.current
       if (video) {
         video.srcObject = stream
-        await video.play()
+        video.play().catch(() => {})
       }
       if (running) setCameraState("streaming")
     }

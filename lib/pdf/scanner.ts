@@ -610,12 +610,12 @@ export async function detectDocumentCorners(
   canvas: HTMLCanvasElement,
 ): Promise<Point[] | null> {
   const cv = await loadOpenCv()
-  if (!cv) return null
+  if (!cv) return detectDocumentCornersFallback(canvas)
 
   try {
     return detectWithOpenCv(canvas, cv)
   } catch {
-    return null
+    return detectDocumentCornersFallback(canvas)
   }
 }
 

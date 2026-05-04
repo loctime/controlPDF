@@ -92,7 +92,10 @@ export async function loadOpenCv(): Promise<OpenCvLike | null> {
 
   emit("loading")
   loadPromise = new Promise<OpenCvLike | null>((resolve) => {
+    let finished = false
     const finish = (cv: OpenCvLike | null) => {
+      if (finished) return
+      finished = true
       emit(cv ? "loaded" : "failed")
       resolve(cv)
     }
@@ -109,7 +112,10 @@ export async function loadOpenCv(): Promise<OpenCvLike | null> {
       script.async = true
       script.src = OPENCV_SRC
       script.onload = () => {
-        if (!currentCv()) {
+        const cvSync = currentCvSync()
+        if (cvSync) {
+          finish(cvSync)
+        } else {
           void waitForRuntime().then(finish).catch(() => finish(null))
         }
       }
@@ -117,6 +123,9 @@ export async function loadOpenCv(): Promise<OpenCvLike | null> {
 
       ;(window as typeof window & { Module?: typeof module }).Module = module
       document.head.appendChild(script)
+
+      // Safety net: if the script hangs without firing onload/onerror
+      void waitForRuntime(20000).then(finish).catch(() => finish(null))
     } catch {
       finish(null)
     }
