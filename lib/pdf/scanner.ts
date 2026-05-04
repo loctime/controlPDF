@@ -315,11 +315,33 @@ function findLargestComponent(binary: Uint8Array, w: number, h: number): Point[]
   return best
 }
 
-// Extrae las 4 esquinas extremas de un conjunto de puntos
+// Encuentra las 4 esquinas del hull usando cuadrantes desde el centroide.
+// Más estable que sortCorners: cada corner es el punto más alejado del centro
+// en su cuadrante, no el extremo absoluto de una coordenada diagonal.
+function hullCorners(hull: Point[]): [Point, Point, Point, Point] {
+  if (hull.length <= 4) return sortCorners(hull)
+
+  const cx = hull.reduce((s, p) => s + p.x, 0) / hull.length
+  const cy = hull.reduce((s, p) => s + p.y, 0) / hull.length
+
+  let tl = hull[0], tr = hull[0], br = hull[0], bl = hull[0]
+  let tlD = -1, trD = -1, brD = -1, blD = -1
+
+  for (const p of hull) {
+    const d = (p.x - cx) ** 2 + (p.y - cy) ** 2
+    if (p.x < cx  && p.y < cy  && d > tlD) { tl = p; tlD = d }
+    if (p.x >= cx && p.y < cy  && d > trD) { tr = p; trD = d }
+    if (p.x >= cx && p.y >= cy && d > brD) { br = p; brD = d }
+    if (p.x < cx  && p.y >= cy && d > blD) { bl = p; blD = d }
+  }
+
+  if (tlD < 0 || trD < 0 || brD < 0 || blD < 0) return sortCorners(hull)
+  return [tl, tr, br, bl]
+}
+
 function findQuadFromPoints(pts: Point[], minArea: number): [Point, Point, Point, Point] | null {
   if (pts.length < 20) return null
 
-  // Subsamplear para performance (convex hull no necesita todos los puntos)
   const MAX_PTS = 1500
   const sampled = pts.length > MAX_PTS
     ? pts.filter((_, i) => i % Math.ceil(pts.length / MAX_PTS) === 0)
@@ -331,9 +353,7 @@ function findQuadFromPoints(pts: Point[], minArea: number): [Point, Point, Point
   const area = polygonArea(hull)
   if (area < minArea) return null
 
-  // sortCorners encuentra TL/TR/BR/BL por sus coordenadas extremas
-  // en cualquier polígono convexo — no necesitamos Douglas-Peucker aquí
-  return sortCorners(hull)
+  return hullCorners(hull)
 }
 
 // Convex hull (Graham scan) para obtener el polígono exterior

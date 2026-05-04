@@ -1,14 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Camera, CameraOff, Loader2, Copy } from "lucide-react"
+import { Camera, CameraOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   detectDocumentCorners,
   captureVideoFrame,
   defaultCorners,
   type Point,
-  type ScanDebugInfo,
 } from "@/lib/pdf/scanner"
 
 interface ScanCameraProps {
@@ -35,31 +34,20 @@ function categorizeError(err: unknown): string {
   return "No se pudo acceder a la cámara."
 }
 
-function formatDebug(d: ScanDebugInfo): string {
-  return [
-    `otsu=${d.otsuT}`,
-    `bin=${d.binaryPct}%`,
-    `blob=${d.blobPct}% (${d.blobPx}px)`,
-    `edges=${d.edgePts}`,
-    `method=${d.method}`,
-    `result=${d.result}`,
-  ].join(" | ")
-}
-
 export function ScanCamera({ onCapture }: ScanCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
+
+  // Para captura: corners suavizados (o null)
   const detectedCornersRef = useRef<Point[] | null>(null)
+  // Suavizado EMA entre frames
+  const smoothedCornersRef = useRef<Point[] | null>(null)
+  // Contador de frames consecutivos con/sin detección
+  const hitCountRef = useRef(0)
+  const missCountRef = useRef(0)
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting")
   const [errorMsg, setErrorMsg] = useState("")
-  const [debugLog, setDebugLog] = useState<string[]>([])
-  const [copied, setCopied] = useState(false)
-
-  const addLog = useCallback((d: ScanDebugInfo) => {
-    const line = formatDebug(d)
-    setDebugLog((prev) => [line, ...prev].slice(0, 30))
-  }, [])
 
   const drawOverlay = useCallback((corners: Point[] | null) => {
     const overlay = overlayRef.current
@@ -136,7 +124,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     }
   }, [])
 
-  // Detección periódica de corners
+  // Detección periódica con suavizado temporal
   useEffect(() => {
     if (cameraState !== "streaming") return
     let running = true
@@ -147,20 +135,45 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
         const video = videoRef.current
         if (video && video.readyState >= 2) {
           const frame = captureVideoFrame(video)
-          const corners = detectDocumentCorners(frame, addLog)
-          detectedCornersRef.current = corners
-          drawOverlay(corners)
+          const raw = detectDocumentCorners(frame)
+
+          if (raw && raw.length === 4) {
+            hitCountRef.current++
+            missCountRef.current = 0
+
+            const prev = smoothedCornersRef.current
+            if (prev && prev.length === 4) {
+              // EMA: 35% nuevo / 65% anterior — suaviza sin perder respuesta
+              smoothedCornersRef.current = raw.map((p, i) => ({
+                x: 0.35 * p.x + 0.65 * prev[i].x,
+                y: 0.35 * p.y + 0.65 * prev[i].y,
+              }))
+            } else {
+              smoothedCornersRef.current = raw
+            }
+          } else {
+            hitCountRef.current = 0
+            missCountRef.current++
+            // Mantener corners hasta 5 frames sin detección (evita parpadeo)
+            if (missCountRef.current > 5) smoothedCornersRef.current = null
+          }
+
+          // Guardar para captura (usa siempre los suavizados)
+          detectedCornersRef.current = smoothedCornersRef.current
+
+          // Mostrar overlay solo tras 2+ frames consecutivos estables
+          const display = hitCountRef.current >= 2 ? smoothedCornersRef.current : null
+          drawOverlay(display)
         }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        setDebugLog((prev) => [`ERROR: ${msg}`, ...prev].slice(0, 30))
+      } catch {
+        // silencio — el loop nunca muere
       }
       if (running) setTimeout(tick, 400)
     }
     tick()
 
     return () => { running = false }
-  }, [cameraState, drawOverlay, addLog])
+  }, [cameraState, drawOverlay])
 
   const handleCapture = useCallback(() => {
     const video = videoRef.current
@@ -179,17 +192,8 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     onCapture(dataUrl, corners, { w, h })
   }, [onCapture])
 
-  const handleCopyLogs = useCallback(() => {
-    const text = debugLog.join("\n")
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }, [debugLog])
-
   return (
     <div className="space-y-2">
-      {/* Vista de cámara */}
       <div
         className="relative w-full rounded-lg overflow-hidden bg-black"
         style={{ height: "min(55vh, 480px)", minHeight: "250px" }}
@@ -221,7 +225,6 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
         />
       </div>
 
-      {/* Botón capturar */}
       {cameraState === "streaming" && (
         <div className="flex justify-center">
           <Button
@@ -231,40 +234,6 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
           >
             <Camera className="h-6 w-6" />
           </Button>
-        </div>
-      )}
-
-      {/* Panel de debug */}
-      {debugLog.length > 0 && (
-        <div className="rounded-md border border-border bg-black/90 p-2 space-y-1">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-mono text-yellow-400 font-bold">DEBUG</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 px-2 text-[10px] text-muted-foreground"
-              onClick={handleCopyLogs}
-            >
-              <Copy className="h-3 w-3 mr-1" />
-              {copied ? "Copiado!" : "Copiar"}
-            </Button>
-          </div>
-          <div className="max-h-36 overflow-y-auto space-y-0.5">
-            {debugLog.map((line, i) => (
-              <p
-                key={i}
-                className="text-[10px] font-mono leading-tight break-all"
-                style={{
-                  color: line.includes("result=ok") ? "#4ade80" : "#f87171",
-                }}
-              >
-                {line}
-              </p>
-            ))}
-          </div>
-          <p className="text-[9px] text-muted-foreground mt-1">
-            otsu=umbral · bin=%px brillantes · blob=componente mayor · edges=px borde
-          </p>
         </div>
       )}
     </div>
