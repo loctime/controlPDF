@@ -315,12 +315,12 @@ function findLargestComponent(binary: Uint8Array, w: number, h: number): Point[]
   return best
 }
 
-// Intenta extraer 4 esquinas de un conjunto de puntos
+// Extrae las 4 esquinas extremas de un conjunto de puntos
 function findQuadFromPoints(pts: Point[], minArea: number): [Point, Point, Point, Point] | null {
   if (pts.length < 20) return null
 
-  // Subsamplear para evitar stack overflow con Math.max/spread en arrays grandes
-  const MAX_PTS = 2000
+  // Subsamplear para performance (convex hull no necesita todos los puntos)
+  const MAX_PTS = 1500
   const sampled = pts.length > MAX_PTS
     ? pts.filter((_, i) => i % Math.ceil(pts.length / MAX_PTS) === 0)
     : pts
@@ -328,24 +328,12 @@ function findQuadFromPoints(pts: Point[], minArea: number): [Point, Point, Point
   const hull = convexHull(sampled)
   if (hull.length < 4) return null
 
-  // Usar loop en vez de spread para evitar RangeError en mobile
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-  for (const p of sampled) {
-    if (p.x < minX) minX = p.x
-    if (p.x > maxX) maxX = p.x
-    if (p.y < minY) minY = p.y
-    if (p.y > maxY) maxY = p.y
-  }
-  const diag = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2)
+  const area = polygonArea(hull)
+  if (area < minArea) return null
 
-  for (const factor of [0.02, 0.04, 0.06, 0.08, 0.12]) {
-    const simplified = douglasPeucker(hull, factor * diag)
-    if (simplified.length >= 4 && simplified.length <= 7) {
-      const area = polygonArea(simplified)
-      if (area >= minArea) return sortCorners(simplified.slice(0, 4))
-    }
-  }
-  return null
+  // sortCorners encuentra TL/TR/BR/BL por sus coordenadas extremas
+  // en cualquier polígono convexo — no necesitamos Douglas-Peucker aquí
+  return sortCorners(hull)
 }
 
 // Convex hull (Graham scan) para obtener el polígono exterior
