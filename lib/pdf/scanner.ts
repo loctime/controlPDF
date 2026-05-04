@@ -7,6 +7,16 @@ export interface Point {
   y: number
 }
 
+// Tablas precalculadas para Hough (inicializadas al cargar el módulo)
+const THETA_N = 180
+const _hCos = new Float64Array(THETA_N)
+const _hSin = new Float64Array(THETA_N)
+for (let i = 0; i < THETA_N; i++) {
+  const a = (i * Math.PI) / THETA_N
+  _hCos[i] = Math.cos(a)
+  _hSin[i] = Math.sin(a)
+}
+
 // ─── Utilidades de canvas ────────────────────────────────────────────────────
 
 function cloneCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
@@ -380,91 +390,195 @@ function convexHull(pts: Point[]): Point[] {
   return [...lower, ...upper]
 }
 
-export interface ScanDebugInfo {
-  otsuT: number
-  binaryPx: number      // px > otsuT antes de erode
-  binaryPct: string     // % del frame
-  blobPx: number        // px en el blob más grande tras erode
-  blobPct: string       // % del frame
-  method: "threshold" | "edges" | "none"
-  edgePts: number       // px en mayor componente de bordes (método 2)
-  quadSides: number     // lados del polígono simplificado (0 si no hay quad)
-  result: "ok" | "null"
+// ─── 5b. Hough Line Transform ────────────────────────────────────────────────
+
+interface HoughLine { ti: number; ri: number; votes: number }
+
+function houghAccumulate(
+  edges: Uint8Array,
+  w: number,
+  h: number,
+): { acc: Int32Array; rhoN: number; offset: number } {
+  const diag = Math.ceil(Math.sqrt(w * w + h * h))
+  const offset = diag
+  const rhoN = 2 * diag + 1
+  const acc = new Int32Array(THETA_N * rhoN)
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!edges[y * w + x]) continue
+      for (let t = 0; t < THETA_N; t++) {
+        const rho = Math.round(x * _hCos[t] + y * _hSin[t]) + offset
+        if (rho >= 0 && rho < rhoN) acc[t * rhoN + rho]++
+      }
+    }
+  }
+  return { acc, rhoN, offset }
+}
+
+function houghPeaks(
+  acc: Int32Array,
+  rhoN: number,
+  maxN: number,
+  minVotes: number,
+): HoughLine[] {
+  const work = new Int32Array(acc)
+  const peaks: HoughLine[] = []
+  const suppT = 10, suppR = 15
+
+  for (let n = 0; n < maxN; n++) {
+    let best = 0, bestIdx = 0
+    for (let i = 0; i < work.length; i++) {
+      if (work[i] > best) { best = work[i]; bestIdx = i }
+    }
+    if (best < minVotes) break
+
+    const ti = Math.floor(bestIdx / rhoN)
+    const ri = bestIdx % rhoN
+    peaks.push({ ti, ri, votes: best })
+
+    // Suprimir vecindad para no detectar la misma línea dos veces
+    for (let dt = -suppT; dt <= suppT; dt++) {
+      const nt = (ti + dt + THETA_N) % THETA_N
+      for (let dr = -suppR; dr <= suppR; dr++) {
+        const nr = ri + dr
+        if (nr >= 0 && nr < rhoN) work[nt * rhoN + nr] = 0
+      }
+    }
+  }
+  return peaks
+}
+
+function intersectHoughLines(
+  l1: HoughLine,
+  l2: HoughLine,
+  offset: number,
+): Point | null {
+  const rho1 = l1.ri - offset, rho2 = l2.ri - offset
+  const c1 = _hCos[l1.ti], s1 = _hSin[l1.ti]
+  const c2 = _hCos[l2.ti], s2 = _hSin[l2.ti]
+  const det = c1 * s2 - s1 * c2
+  if (Math.abs(det) < 0.05) return null  // líneas casi paralelas
+  return {
+    x: (rho1 * s2 - rho2 * s1) / det,
+    y: (rho2 * c1 - rho1 * c2) / det,
+  }
+}
+
+// Elige el par más separado de un grupo de líneas Hough (los dos lados opuestos)
+function pickLinePair(
+  group: HoughLine[],
+  minRhoSep: number,
+): [HoughLine, HoughLine] | null {
+  if (group.length < 2) return null
+  const sorted = [...group].sort((a, b) => b.votes - a.votes)
+  const first = sorted[0]
+  for (let i = 1; i < sorted.length; i++) {
+    const dRho = Math.abs(sorted[i].ri - first.ri)
+    // tolerancia θ: ±25 pasos (~25°) — los dos lados del documento son casi paralelos
+    const dT = Math.min(
+      Math.abs(sorted[i].ti - first.ti),
+      THETA_N - Math.abs(sorted[i].ti - first.ti),
+    )
+    if (dRho >= minRhoSep && dT <= 25) return [first, sorted[i]]
+  }
+  return null
+}
+
+// Detección principal via Hough: encuentra las 4 rectas del documento y las intersecta
+function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null {
+  let edgeCount = 0
+  for (let i = 0; i < edges.length; i++) if (edges[i]) edgeCount++
+  if (edgeCount < 80) return null
+
+  const { acc, rhoN, offset } = houghAccumulate(edges, w, h)
+  const minVotes = Math.max(25, Math.floor(edgeCount * 0.025))
+  const peaks = houghPeaks(acc, rhoN, 30, minVotes)
+  if (peaks.length < 4) return null
+
+  // θ ∈ [45°,135°) → normal vertical → línea horizontal en la imagen (bordes top/bottom)
+  // θ fuera de ese rango → normal horizontal → línea vertical (bordes left/right)
+  const hGroup: HoughLine[] = []
+  const vGroup: HoughLine[] = []
+  for (const p of peaks) {
+    const tDeg = (p.ti * 180) / THETA_N
+    if (tDeg >= 45 && tDeg < 135) hGroup.push(p)
+    else vGroup.push(p)
+  }
+
+  if (hGroup.length < 2 || vGroup.length < 2) return null
+
+  const hPair = pickLinePair(hGroup, h * 0.15)
+  const vPair = pickLinePair(vGroup, w * 0.15)
+  if (!hPair || !vPair) return null
+
+  // 4 esquinas = intersección de cada línea horizontal con cada vertical
+  const corners: Point[] = []
+  for (const hl of hPair) {
+    for (const vl of vPair) {
+      const pt = intersectHoughLines(hl, vl, offset)
+      if (!pt) return null
+      corners.push(pt)
+    }
+  }
+
+  const quad = sortCorners(corners)
+  if (polygonArea(quad) < w * h * 0.07) return null
+
+  // Permitir corners ligeramente fuera del frame (documento que sobresale)
+  const margin = Math.max(w, h) * 0.35
+  if (quad.some(p =>
+    p.x < -margin || p.x > w + margin ||
+    p.y < -margin || p.y > h + margin
+  )) return null
+
+  return quad
 }
 
 export function detectDocumentCorners(
   canvas: HTMLCanvasElement,
-  onDebug?: (d: ScanDebugInfo) => void,
 ): Point[] | null {
   const DETECT_W = 320
   const DETECT_H = 240
   const TOTAL = DETECT_W * DETECT_H
   const scaleX = canvas.width / DETECT_W
   const scaleY = canvas.height / DETECT_H
-  const minArea = 0.07 * TOTAL
 
   const small = scaleCanvas(canvas, DETECT_W, DETECT_H)
-
   const gray = cloneCanvas(small)
   const gd = canvasImageData(gray)
   toGrayscale(gd)
   gray.getContext("2d")!.putImageData(gd, 0, 0)
-  const blurred = gaussianBlur(gray, 5)
-  const blurData = canvasImageData(blurred)
 
-  // ── Método 1: blob más brillante ─────────────────────────────────────────
+  // ── Método 1: Hough Line Transform ───────────────────────────────────────
+  // Blur suave para bordes limpios, threshold ~50/255 para capturar contornos fuertes
+  const blurH = gaussianBlur(gray, 2)
+  const magH = sobelGradient(blurH)
+  const edgesH = new Uint8Array(TOTAL)
+  for (let i = 0; i < TOTAL; i++) if (magH[i] > 50) edgesH[i] = 1
+
+  const houghResult = detectByHough(edgesH, DETECT_W, DETECT_H)
+  if (houghResult) {
+    return houghResult.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
+  }
+
+  // ── Método 2: blob brillante (fallback) ──────────────────────────────────
+  const minArea = 0.07 * TOTAL
+  const blurB = gaussianBlur(gray, 5)
+  const blurData = canvasImageData(blurB)
   const otsuT = computeOtsu(blurData.data, TOTAL)
   const binary = new Uint8Array(TOTAL)
-  let binaryPx = 0
   for (let i = 0; i < blurData.data.length; i += 4) {
-    if (blurData.data[i] > otsuT) { binary[i >> 2] = 255; binaryPx++ }
+    if (blurData.data[i] > otsuT) binary[i >> 2] = 255
   }
   const eroded = erode(binary, DETECT_W, DETECT_H, 2)
   const brightPts = findLargestComponent(eroded, DETECT_W, DETECT_H)
 
-  const dbg: ScanDebugInfo = {
-    otsuT,
-    binaryPx,
-    binaryPct: ((binaryPx / TOTAL) * 100).toFixed(1),
-    blobPx: brightPts.length,
-    blobPct: ((brightPts.length / TOTAL) * 100).toFixed(1),
-    method: "none",
-    edgePts: 0,
-    quadSides: 0,
-    result: "null",
-  }
-
   if (brightPts.length >= minArea && brightPts.length < 0.85 * TOTAL) {
     const quad = findQuadFromPoints(brightPts, minArea)
-    if (quad) {
-      dbg.method = "threshold"
-      dbg.quadSides = 4
-      dbg.result = "ok"
-      onDebug?.(dbg)
-      return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
-    }
+    if (quad) return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
   }
 
-  // ── Método 2: bordes (fallback) ──────────────────────────────────────────
-  const mag = sobelGradient(blurred)
-  const thresholded = doubleThreshold(mag, 50, 120)
-  const edges = hysteresis(thresholded, DETECT_W, DETECT_H)
-  const dilated = dilate(edges, DETECT_W, DETECT_H, 3)
-  const edgePts = findLargestComponent(dilated, DETECT_W, DETECT_H)
-  dbg.edgePts = edgePts.length
-
-  if (edgePts.length >= 50) {
-    const quad = findQuadFromPoints(edgePts, minArea)
-    if (quad) {
-      dbg.method = "edges"
-      dbg.quadSides = 4
-      dbg.result = "ok"
-      onDebug?.(dbg)
-      return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
-    }
-  }
-
-  onDebug?.(dbg)
   return null
 }
 
