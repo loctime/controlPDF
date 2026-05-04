@@ -1,4 +1,5 @@
 import { PDFDocument } from "@cantoo/pdf-lib"
+import { getOpenCv, type OpenCvLike } from "@/lib/pdf/opencv"
 
 export type ScanMode = "document" | "color" | "bw" | "photo"
 
@@ -235,6 +236,76 @@ function sortCorners(pts: Point[]): [Point, Point, Point, Point] {
   const tr = pts.reduce((best, p) => p.y - p.x < best.y - best.x ? p : best)
   const bl = pts.reduce((best, p) => p.y - p.x > best.y - best.x ? p : best)
   return [tl, tr, br, bl]
+}
+
+function contourToPoints(contour: { data32S?: Int32Array; rows?: number; cols?: number }): Point[] {
+  const raw = contour.data32S
+  if (!raw) return []
+
+  const pts: Point[] = []
+  const len = contour.rows && contour.rows > 0 ? contour.rows : Math.floor(raw.length / 2)
+  for (let i = 0; i < len; i++) {
+    const x = raw[i * 2]
+    const y = raw[i * 2 + 1]
+    if (Number.isFinite(x) && Number.isFinite(y)) pts.push({ x, y })
+  }
+  return pts
+}
+
+function detectWithOpenCv(canvas: HTMLCanvasElement, cv: OpenCvLike): Point[] | null {
+  const src = cv.imread(canvas)
+  const gray = new cv.Mat()
+  const blur = new cv.Mat()
+  const edges = new cv.Mat()
+  const contours = new cv.MatVector()
+  const hierarchy = new cv.Mat()
+
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY)
+    cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT)
+    cv.Canny(blur, edges, 75, 200)
+    cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+    const areaFloor = canvas.width * canvas.height * 0.08
+    let best: Point[] | null = null
+    let bestArea = 0
+
+    for (let i = 0; i < contours.size(); i++) {
+      const contour = contours.get(i)
+      const perimeter = cv.arcLength(contour, true)
+      if (perimeter < 80) {
+        contour.delete()
+        continue
+      }
+
+      const approx = new cv.Mat()
+      try {
+        cv.approxPolyDP(contour, approx, 0.02 * perimeter, true)
+        if (approx.rows === 4) {
+          const points = contourToPoints(approx)
+          if (points.length !== 4) continue
+
+          const area = Math.abs(cv.contourArea(approx))
+          if (area > bestArea && area >= areaFloor) {
+            bestArea = area
+            best = sortCorners(points)
+          }
+        }
+      } finally {
+        approx.delete()
+        contour.delete()
+      }
+    }
+
+    return best
+  } finally {
+    hierarchy.delete()
+    contours.delete()
+    edges.delete()
+    blur.delete()
+    gray.delete()
+    src.delete()
+  }
 }
 
 // Umbral de Otsu sobre imagen en grayscale
@@ -535,7 +606,23 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
   return quad
 }
 
-export function detectDocumentCorners(
+export async function detectDocumentCorners(
+  canvas: HTMLCanvasElement,
+): Promise<Point[] | null> {
+  const cv = await getOpenCv()
+  if (cv) {
+    try {
+      const openCvCorners = detectWithOpenCv(canvas, cv)
+      if (openCvCorners) return openCvCorners
+    } catch {
+      // Si OpenCV falla, seguimos con el detector nativo.
+    }
+  }
+
+  return detectDocumentCornersFallback(canvas)
+}
+
+function detectDocumentCornersFallback(
   canvas: HTMLCanvasElement,
 ): Point[] | null {
   const DETECT_W = 400

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
+import Script from "next/script"
 import { Camera, CameraOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -135,7 +136,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
         const video = videoRef.current
         if (video && video.readyState >= 2) {
           const frame = captureVideoFrame(video)
-          const raw = detectDocumentCorners(frame)
+          const raw = await detectDocumentCorners(frame)
 
           if (raw && raw.length === 4) {
             hitCountRef.current++
@@ -194,6 +195,10 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
   return (
     <div className="space-y-2">
+      <Script
+        src="https://docs.opencv.org/4.x/opencv.js"
+        strategy="afterInteractive"
+      />
       <div
         className="relative w-full rounded-lg overflow-hidden bg-black"
         style={{ height: "min(55vh, 480px)", minHeight: "250px" }}
