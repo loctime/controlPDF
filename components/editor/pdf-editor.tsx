@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { toast } from "sonner"
 import { useEditorStore } from "@/lib/editor/store"
 import { EmptyState } from "./empty-state"
@@ -8,6 +9,11 @@ import { PageGrid } from "./page-grid"
 import { SourceChipBar } from "./source-chip-bar"
 import { SelectionToolbar } from "./selection-toolbar"
 import { EditorToolbar } from "./editor-toolbar"
+
+const ScanModal = dynamic(
+  () => import("./scanner/scan-modal").then((m) => m.ScanModal),
+  { ssr: false },
+)
 
 const MAX_FILE_SIZE_MB = 100
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -23,6 +29,7 @@ export function PdfEditor() {
   const selectAll = useEditorStore((s) => s.selectAll)
   const clearSelection = useEditorStore((s) => s.clearSelection)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [scanOpen, setScanOpen] = useState(false)
 
   const isMac = useMemo(
     () =>
@@ -93,11 +100,15 @@ export function PdfEditor() {
 
   if (pageCount === 0) {
     return (
-      <EmptyState
-        onFilesAdded={handleFilesAdded}
-        inputRef={fileInputRef}
-        maxSizeMb={MAX_FILE_SIZE_MB}
-      />
+      <>
+        <EmptyState
+          onFilesAdded={handleFilesAdded}
+          inputRef={fileInputRef}
+          maxSizeMb={MAX_FILE_SIZE_MB}
+          onScan={() => setScanOpen(true)}
+        />
+        <ScanModal open={scanOpen} onOpenChange={setScanOpen} />
+      </>
     )
   }
 
@@ -120,7 +131,9 @@ export function PdfEditor() {
         isMac={isMac}
         onAddFiles={() => fileInputRef.current?.click()}
         onClearAll={clearAll}
+        onScan={() => setScanOpen(true)}
       />
+      <ScanModal open={scanOpen} onOpenChange={setScanOpen} />
       <SourceChipBar />
       <div className="text-xs text-muted-foreground">
         {sourceCount} {sourceCount === 1 ? "archivo" : "archivos"} ·{" "}

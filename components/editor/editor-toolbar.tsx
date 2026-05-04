@@ -2,6 +2,7 @@
 
 import { useState, forwardRef } from "react"
 import {
+  Camera,
   Droplet,
   FileImage,
   Hash,
@@ -31,12 +32,14 @@ interface EditorToolbarProps {
   isMac: boolean
   onAddFiles: () => void
   onClearAll: () => void
+  onScan: () => void
 }
 
 export function EditorToolbar({
   isMac,
   onAddFiles,
   onClearAll,
+  onScan,
 }: EditorToolbarProps) {
   const ops = useEditorStore(
     useShallow((s) => ({
@@ -57,6 +60,17 @@ export function EditorToolbar({
         <div className="flex flex-wrap items-center gap-1">
           <UndoRedo isMac={isMac} />
           <Divider />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={onScan}>
+                <Camera className="h-4 w-4" />
+                <span className="hidden md:inline">Escanear</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Escanear documento con la cámara</p>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="sm" onClick={onAddFiles}>
