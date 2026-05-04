@@ -359,16 +359,31 @@ function convexHull(pts: Point[]): Point[] {
   return [...lower, ...upper]
 }
 
-export function detectDocumentCorners(canvas: HTMLCanvasElement): Point[] | null {
+export interface ScanDebugInfo {
+  otsuT: number
+  binaryPx: number      // px > otsuT antes de erode
+  binaryPct: string     // % del frame
+  blobPx: number        // px en el blob más grande tras erode
+  blobPct: string       // % del frame
+  method: "threshold" | "edges" | "none"
+  edgePts: number       // px en mayor componente de bordes (método 2)
+  quadSides: number     // lados del polígono simplificado (0 si no hay quad)
+  result: "ok" | "null"
+}
+
+export function detectDocumentCorners(
+  canvas: HTMLCanvasElement,
+  onDebug?: (d: ScanDebugInfo) => void,
+): Point[] | null {
   const DETECT_W = 640
   const DETECT_H = 480
+  const TOTAL = DETECT_W * DETECT_H
   const scaleX = canvas.width / DETECT_W
   const scaleY = canvas.height / DETECT_H
-  const minArea = 0.07 * DETECT_W * DETECT_H
+  const minArea = 0.07 * TOTAL
 
   const small = scaleCanvas(canvas, DETECT_W, DETECT_H)
 
-  // Grayscale + blur para ambos métodos
   const gray = cloneCanvas(small)
   const gd = canvasImageData(gray)
   toGrayscale(gd)
@@ -376,34 +391,60 @@ export function detectDocumentCorners(canvas: HTMLCanvasElement): Point[] | null
   const blurred = gaussianBlur(gray, 5)
   const blurData = canvasImageData(blurred)
 
-  // ── Método 1: blob más brillante (papel blanco sobre cualquier fondo) ──────
-  const otsuT = computeOtsu(blurData.data, DETECT_W * DETECT_H)
-  const binary = new Uint8Array(DETECT_W * DETECT_H)
+  // ── Método 1: blob más brillante ─────────────────────────────────────────
+  const otsuT = computeOtsu(blurData.data, TOTAL)
+  const binary = new Uint8Array(TOTAL)
+  let binaryPx = 0
   for (let i = 0; i < blurData.data.length; i += 4) {
-    binary[i >> 2] = blurData.data[i] > otsuT ? 255 : 0
+    if (blurData.data[i] > otsuT) { binary[i >> 2] = 255; binaryPx++ }
   }
   const eroded = erode(binary, DETECT_W, DETECT_H, 4)
   const brightPts = findLargestComponent(eroded, DETECT_W, DETECT_H)
 
-  // Validar que el blob no sea casi todo el frame (fondo blanco) ni muy chico
-  if (brightPts.length >= minArea && brightPts.length < 0.85 * DETECT_W * DETECT_H) {
-    const quad = findQuadFromPoints(brightPts, minArea)
-    if (quad) return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
+  const dbg: ScanDebugInfo = {
+    otsuT,
+    binaryPx,
+    binaryPct: ((binaryPx / TOTAL) * 100).toFixed(1),
+    blobPx: brightPts.length,
+    blobPct: ((brightPts.length / TOTAL) * 100).toFixed(1),
+    method: "none",
+    edgePts: 0,
+    quadSides: 0,
+    result: "null",
   }
 
-  // ── Método 2: detección de bordes (fallback para fondos claros o mixtos) ──
+  if (brightPts.length >= minArea && brightPts.length < 0.85 * TOTAL) {
+    const quad = findQuadFromPoints(brightPts, minArea)
+    if (quad) {
+      dbg.method = "threshold"
+      dbg.quadSides = 4
+      dbg.result = "ok"
+      onDebug?.(dbg)
+      return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
+    }
+  }
+
+  // ── Método 2: bordes (fallback) ──────────────────────────────────────────
   const mag = sobelGradient(blurred)
   const thresholded = doubleThreshold(mag, 50, 120)
   const edges = hysteresis(thresholded, DETECT_W, DETECT_H)
   const dilated = dilate(edges, DETECT_W, DETECT_H, 3)
   const edgePts = findLargestComponent(dilated, DETECT_W, DETECT_H)
+  dbg.edgePts = edgePts.length
 
-  if (edgePts.length < 50) return null
+  if (edgePts.length >= 50) {
+    const quad = findQuadFromPoints(edgePts, minArea)
+    if (quad) {
+      dbg.method = "edges"
+      dbg.quadSides = 4
+      dbg.result = "ok"
+      onDebug?.(dbg)
+      return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
+    }
+  }
 
-  const quad = findQuadFromPoints(edgePts, minArea)
-  if (!quad) return null
-
-  return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
+  onDebug?.(dbg)
+  return null
 }
 
 // Esquinas por defecto (todo el frame con margen)

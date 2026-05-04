@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Camera, CameraOff, Loader2 } from "lucide-react"
+import { Camera, CameraOff, Loader2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   detectDocumentCorners,
   captureVideoFrame,
   defaultCorners,
   type Point,
+  type ScanDebugInfo,
 } from "@/lib/pdf/scanner"
 
 interface ScanCameraProps {
@@ -34,6 +35,17 @@ function categorizeError(err: unknown): string {
   return "No se pudo acceder a la cámara."
 }
 
+function formatDebug(d: ScanDebugInfo): string {
+  return [
+    `otsu=${d.otsuT}`,
+    `bin=${d.binaryPct}%`,
+    `blob=${d.blobPct}% (${d.blobPx}px)`,
+    `edges=${d.edgePts}`,
+    `method=${d.method}`,
+    `result=${d.result}`,
+  ].join(" | ")
+}
+
 export function ScanCamera({ onCapture }: ScanCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -41,6 +53,13 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting")
   const [errorMsg, setErrorMsg] = useState("")
+  const [debugLog, setDebugLog] = useState<string[]>([])
+  const [copied, setCopied] = useState(false)
+
+  const addLog = useCallback((d: ScanDebugInfo) => {
+    const line = formatDebug(d)
+    setDebugLog((prev) => [line, ...prev].slice(0, 30))
+  }, [])
 
   const drawOverlay = useCallback((corners: Point[] | null) => {
     const overlay = overlayRef.current
@@ -88,7 +107,6 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 } },
         })
       } catch {
-        // Fallback: cualquier cámara disponible
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true })
         } catch (err) {
@@ -118,7 +136,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     }
   }, [])
 
-  // Detección periódica de corners (solo mientras streaming)
+  // Detección periódica de corners
   useEffect(() => {
     if (cameraState !== "streaming") return
     let running = true
@@ -128,7 +146,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
       const video = videoRef.current
       if (video && video.readyState >= 2) {
         const frame = captureVideoFrame(video)
-        const corners = detectDocumentCorners(frame)
+        const corners = detectDocumentCorners(frame, addLog)
         detectedCornersRef.current = corners
         drawOverlay(corners)
       }
@@ -137,7 +155,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     tick()
 
     return () => { running = false }
-  }, [cameraState, drawOverlay])
+  }, [cameraState, drawOverlay, addLog])
 
   const handleCapture = useCallback(() => {
     const video = videoRef.current
@@ -156,11 +174,20 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     onCapture(dataUrl, corners, { w, h })
   }, [onCapture])
 
+  const handleCopyLogs = useCallback(() => {
+    const text = debugLog.join("\n")
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [debugLog])
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
+      {/* Vista de cámara */}
       <div
         className="relative w-full rounded-lg overflow-hidden bg-black"
-        style={{ height: "min(62vh, 520px)", minHeight: "280px" }}
+        style={{ height: "min(55vh, 480px)", minHeight: "250px" }}
       >
         {cameraState === "requesting" && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -189,21 +216,51 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
         />
       </div>
 
+      {/* Botón capturar */}
       {cameraState === "streaming" && (
-        <>
-          <div className="flex justify-center">
+        <div className="flex justify-center">
+          <Button
+            onClick={handleCapture}
+            size="lg"
+            className="rounded-full w-14 h-14 p-0"
+          >
+            <Camera className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
+
+      {/* Panel de debug */}
+      {debugLog.length > 0 && (
+        <div className="rounded-md border border-border bg-black/90 p-2 space-y-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-mono text-yellow-400 font-bold">DEBUG</span>
             <Button
-              onClick={handleCapture}
-              size="lg"
-              className="rounded-full w-16 h-16 p-0"
+              variant="ghost"
+              size="sm"
+              className="h-5 px-2 text-[10px] text-muted-foreground"
+              onClick={handleCopyLogs}
             >
-              <Camera className="h-6 w-6" />
+              <Copy className="h-3 w-3 mr-1" />
+              {copied ? "Copiado!" : "Copiar"}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground text-center">
-            El borde verde indica documento detectado · presioná para capturar
+          <div className="max-h-36 overflow-y-auto space-y-0.5">
+            {debugLog.map((line, i) => (
+              <p
+                key={i}
+                className="text-[10px] font-mono leading-tight break-all"
+                style={{
+                  color: line.includes("result=ok") ? "#4ade80" : "#f87171",
+                }}
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+          <p className="text-[9px] text-muted-foreground mt-1">
+            otsu=umbral · bin=%px brillantes · blob=componente mayor · edges=px borde
           </p>
-        </>
+        </div>
       )}
     </div>
   )
