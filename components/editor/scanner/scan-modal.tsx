@@ -108,7 +108,7 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl max-sm:max-w-full max-sm:h-dvh max-sm:rounded-none max-sm:m-0 flex flex-col gap-0 p-0">
-        <DialogHeader className="p-6 pb-4 shrink-0">
+        <DialogHeader className="px-5 pt-4 pb-2 shrink-0">
           <DialogTitle>Escanear documento</DialogTitle>
           <DialogDescription>
             {scanState === "camera" &&
@@ -119,7 +119,7 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 space-y-4 min-h-0">
+        <div className="flex-1 overflow-y-auto px-4 space-y-3 min-h-0">
           {scanState === "camera" && (
             <ScanCamera onCapture={handleCapture} />
           )}

@@ -160,7 +160,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     <div className="space-y-3">
       <div
         className="relative w-full rounded-lg overflow-hidden bg-black"
-        style={{ aspectRatio: "4/3" }}
+        style={{ height: "min(62vh, 520px)", minHeight: "280px" }}
       >
         {cameraState === "requesting" && (
           <div className="absolute inset-0 flex items-center justify-center">

@@ -227,15 +227,112 @@ function sortCorners(pts: Point[]): [Point, Point, Point, Point] {
   return [tl, tr, br, bl]
 }
 
-// Traza contornos simples encontrando píxeles de borde y agrupándolos
-function findContourPoints(edges: Uint8Array, w: number, h: number): Point[] {
-  const pts: Point[] = []
+// Umbral de Otsu sobre imagen en grayscale
+function computeOtsu(data: Uint8ClampedArray, n: number): number {
+  const hist = new Float32Array(256)
+  for (let i = 0; i < n; i++) hist[data[i * 4]]++
+  for (let i = 0; i < 256; i++) hist[i] /= n
+  let sum = 0
+  for (let i = 0; i < 256; i++) sum += i * hist[i]
+  let sumB = 0, wB = 0, maxVar = 0, threshold = 128
+  for (let i = 0; i < 256; i++) {
+    wB += hist[i]
+    if (wB <= 0 || wB >= 1) continue
+    const wF = 1 - wB
+    sumB += i * hist[i]
+    const mB = sumB / wB
+    const mF = (sum - sumB) / wF
+    const v = wB * wF * (mB - mF) ** 2
+    if (v > maxVar) { maxVar = v; threshold = i }
+  }
+  return threshold
+}
+
+// Erosión morfológica (elimina ruido en blob)
+function erode(binary: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  const out = new Uint8Array(binary.length)
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      if (edges[y * w + x] === 255) pts.push({ x, y })
+      let ok = true
+      outer: for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const ny = y + dy, nx = x + dx
+          if (ny < 0 || ny >= h || nx < 0 || nx >= w || !binary[ny * w + nx]) {
+            ok = false; break outer
+          }
+        }
+      }
+      if (ok) out[y * w + x] = 255
     }
   }
-  return pts
+  return out
+}
+
+// Dilatación morfológica (conecta fragmentos de borde)
+function dilate(binary: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  const out = new Uint8Array(binary.length)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      outer: for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const ny = y + dy, nx = x + dx
+          if (ny >= 0 && ny < h && nx >= 0 && nx < w && binary[ny * w + nx]) {
+            out[y * w + x] = 255; break outer
+          }
+        }
+      }
+    }
+  }
+  return out
+}
+
+// Flood fill: devuelve los puntos del componente conectado más grande
+function findLargestComponent(binary: Uint8Array, w: number, h: number): Point[] {
+  const visited = new Uint8Array(binary.length)
+  let best: Point[] = []
+  for (let i = 0; i < binary.length; i++) {
+    if (!binary[i] || visited[i]) continue
+    const pts: Point[] = []
+    const stack = [i]
+    visited[i] = 1
+    while (stack.length > 0) {
+      const idx = stack.pop()!
+      const y = Math.floor(idx / w)
+      const x = idx % w
+      pts.push({ x, y })
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dy === 0 && dx === 0) continue
+          const ny = y + dy, nx = x + dx
+          if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue
+          const ni = ny * w + nx
+          if (binary[ni] && !visited[ni]) { visited[ni] = 1; stack.push(ni) }
+        }
+      }
+    }
+    if (pts.length > best.length) best = pts
+  }
+  return best
+}
+
+// Intenta extraer 4 esquinas de un conjunto de puntos
+function findQuadFromPoints(pts: Point[], minArea: number): [Point, Point, Point, Point] | null {
+  if (pts.length < 20) return null
+  const hull = convexHull(pts)
+  if (hull.length < 4) return null
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y)
+  const diag = Math.sqrt(
+    (Math.max(...xs) - Math.min(...xs)) ** 2 +
+    (Math.max(...ys) - Math.min(...ys)) ** 2
+  )
+  for (const factor of [0.02, 0.04, 0.06, 0.08, 0.12]) {
+    const simplified = douglasPeucker(hull, factor * diag)
+    if (simplified.length >= 4 && simplified.length <= 7) {
+      const area = polygonArea(simplified)
+      if (area >= minArea) return sortCorners(simplified.slice(0, 4))
+    }
+  }
+  return null
 }
 
 // Convex hull (Graham scan) para obtener el polígono exterior
@@ -267,36 +364,46 @@ export function detectDocumentCorners(canvas: HTMLCanvasElement): Point[] | null
   const DETECT_H = 480
   const scaleX = canvas.width / DETECT_W
   const scaleY = canvas.height / DETECT_H
+  const minArea = 0.07 * DETECT_W * DETECT_H
 
   const small = scaleCanvas(canvas, DETECT_W, DETECT_H)
+
+  // Grayscale + blur para ambos métodos
   const gray = cloneCanvas(small)
   const gd = canvasImageData(gray)
   toGrayscale(gd)
   gray.getContext("2d")!.putImageData(gd, 0, 0)
+  const blurred = gaussianBlur(gray, 5)
+  const blurData = canvasImageData(blurred)
 
-  const blurred = gaussianBlur(gray, 2)
+  // ── Método 1: blob más brillante (papel blanco sobre cualquier fondo) ──────
+  const otsuT = computeOtsu(blurData.data, DETECT_W * DETECT_H)
+  const binary = new Uint8Array(DETECT_W * DETECT_H)
+  for (let i = 0; i < blurData.data.length; i += 4) {
+    binary[i >> 2] = blurData.data[i] > otsuT ? 255 : 0
+  }
+  const eroded = erode(binary, DETECT_W, DETECT_H, 4)
+  const brightPts = findLargestComponent(eroded, DETECT_W, DETECT_H)
+
+  // Validar que el blob no sea casi todo el frame (fondo blanco) ni muy chico
+  if (brightPts.length >= minArea && brightPts.length < 0.85 * DETECT_W * DETECT_H) {
+    const quad = findQuadFromPoints(brightPts, minArea)
+    if (quad) return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
+  }
+
+  // ── Método 2: detección de bordes (fallback para fondos claros o mixtos) ──
   const mag = sobelGradient(blurred)
-  const thresholded = doubleThreshold(mag, 30, 80)
+  const thresholded = doubleThreshold(mag, 50, 120)
   const edges = hysteresis(thresholded, DETECT_W, DETECT_H)
+  const dilated = dilate(edges, DETECT_W, DETECT_H, 3)
+  const edgePts = findLargestComponent(dilated, DETECT_W, DETECT_H)
 
-  const pts = findContourPoints(edges, DETECT_W, DETECT_H)
-  if (pts.length < 10) return null
+  if (edgePts.length < 50) return null
 
-  const hull = convexHull(pts)
-  if (hull.length < 4) return null
+  const quad = findQuadFromPoints(edgePts, minArea)
+  if (!quad) return null
 
-  const diag = Math.sqrt(DETECT_W ** 2 + DETECT_H ** 2)
-  const simplified = douglasPeucker(hull, 0.02 * diag)
-
-  if (simplified.length < 4) return null
-
-  const area = polygonArea(simplified)
-  if (area < 0.10 * DETECT_W * DETECT_H) return null
-
-  const corners = sortCorners(simplified.slice(0, 4))
-
-  // Mapear de vuelta a coordenadas originales
-  return corners.map(p => ({ x: p.x * scaleX, y: p.y * scaleY })) as [Point, Point, Point, Point]
+  return quad.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
 }
 
 // Esquinas por defecto (todo el frame con margen)
