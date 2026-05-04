@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import Script from "next/script"
 import { Camera, CameraOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,6 +9,12 @@ import {
   defaultCorners,
   type Point,
 } from "@/lib/pdf/scanner"
+import {
+  getOpenCvStatus,
+  loadOpenCv,
+  subscribeOpenCvStatus,
+  type OpenCvStatus,
+} from "@/lib/pdf/opencv"
 
 interface ScanCameraProps {
   onCapture: (
@@ -49,6 +54,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting")
   const [errorMsg, setErrorMsg] = useState("")
+  const [opencvStatus, setOpenCvStatus] = useState<OpenCvStatus>(getOpenCvStatus())
 
   const drawOverlay = useCallback((corners: Point[] | null) => {
     const overlay = overlayRef.current
@@ -83,6 +89,12 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
       ctx.fillStyle = "#22c55e"
       ctx.fill()
     }
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = subscribeOpenCvStatus(setOpenCvStatus)
+    void loadOpenCv()
+    return unsubscribe
   }, [])
 
   // Iniciar cámara
@@ -162,8 +174,8 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
           // Guardar para captura (usa siempre los suavizados)
           detectedCornersRef.current = smoothedCornersRef.current
 
-          // Mostrar overlay solo tras 4+ frames consecutivos estables
-          const display = hitCountRef.current >= 4 ? smoothedCornersRef.current : null
+          // Mostrar overlay apenas haya esquinas válidas; el suavizado ya evita el parpadeo.
+          const display = smoothedCornersRef.current
           drawOverlay(display)
         }
       } catch {
@@ -195,14 +207,16 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
   return (
     <div className="space-y-2">
-      <Script
-        src="https://docs.opencv.org/4.x/opencv.js"
-        strategy="afterInteractive"
-      />
       <div
         className="relative w-full rounded-lg overflow-hidden bg-black"
         style={{ height: "min(55vh, 480px)", minHeight: "250px" }}
       >
+        <div className="absolute left-3 top-3 z-10 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-xs font-medium text-white backdrop-blur">
+          {opencvStatus === "loading" && "cargando"}
+          {opencvStatus === "loaded" && "cargado"}
+          {opencvStatus === "failed" && "fallo"}
+        </div>
+
         {cameraState === "requesting" && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

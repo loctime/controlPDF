@@ -1,5 +1,5 @@
 import { PDFDocument } from "@cantoo/pdf-lib"
-import { getOpenCv, type OpenCvLike } from "@/lib/pdf/opencv"
+import { loadOpenCv, type OpenCvLike } from "@/lib/pdf/opencv"
 
 export type ScanMode = "document" | "color" | "bw" | "photo"
 
@@ -609,17 +609,14 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
 export async function detectDocumentCorners(
   canvas: HTMLCanvasElement,
 ): Promise<Point[] | null> {
-  const cv = await getOpenCv()
-  if (cv) {
-    try {
-      const openCvCorners = detectWithOpenCv(canvas, cv)
-      if (openCvCorners) return openCvCorners
-    } catch {
-      // Si OpenCV falla, seguimos con el detector nativo.
-    }
-  }
+  const cv = await loadOpenCv()
+  if (!cv) return null
 
-  return detectDocumentCornersFallback(canvas)
+  try {
+    return detectWithOpenCv(canvas, cv)
+  } catch {
+    return null
+  }
 }
 
 function detectDocumentCornersFallback(
