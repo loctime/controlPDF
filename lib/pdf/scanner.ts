@@ -492,7 +492,7 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
   if (edgeCount < 80) return null
 
   const { acc, rhoN, offset } = houghAccumulate(edges, w, h)
-  const minVotes = Math.max(25, Math.floor(edgeCount * 0.025))
+  const minVotes = Math.max(40, Math.floor(edgeCount * 0.05))
   const peaks = houghPeaks(acc, rhoN, 30, minVotes)
   if (peaks.length < 4) return null
 
@@ -523,7 +523,7 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
   }
 
   const quad = sortCorners(corners)
-  if (polygonArea(quad) < w * h * 0.07) return null
+  if (polygonArea(quad) < w * h * 0.12) return null
 
   // Permitir corners ligeramente fuera del frame (documento que sobresale)
   const margin = Math.max(w, h) * 0.35
@@ -538,8 +538,8 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
 export function detectDocumentCorners(
   canvas: HTMLCanvasElement,
 ): Point[] | null {
-  const DETECT_W = 320
-  const DETECT_H = 240
+  const DETECT_W = 400
+  const DETECT_H = 300
   const TOTAL = DETECT_W * DETECT_H
   const scaleX = canvas.width / DETECT_W
   const scaleY = canvas.height / DETECT_H
@@ -555,7 +555,7 @@ export function detectDocumentCorners(
   const blurH = gaussianBlur(gray, 2)
   const magH = sobelGradient(blurH)
   const edgesH = new Uint8Array(TOTAL)
-  for (let i = 0; i < TOTAL; i++) if (magH[i] > 50) edgesH[i] = 1
+  for (let i = 0; i < TOTAL; i++) if (magH[i] > 70) edgesH[i] = 1
 
   const houghResult = detectByHough(edgesH, DETECT_W, DETECT_H)
   if (houghResult) {
@@ -927,7 +927,7 @@ export async function combineImagesToSinglePdf(blobs: Blob[], name: string): Pro
   }
 
   const pdfBytes = await doc.save()
-  const fileName = name.endsWith(".pdf") ? name : `${name}.pdf`
+  const fileName = name.endsWith(".pdf") ? name : `${name}.pdf` 
   return new File([pdfBytes.buffer as ArrayBuffer], fileName, { type: "application/pdf" })
 }
 
