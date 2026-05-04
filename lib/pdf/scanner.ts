@@ -318,13 +318,26 @@ function findLargestComponent(binary: Uint8Array, w: number, h: number): Point[]
 // Intenta extraer 4 esquinas de un conjunto de puntos
 function findQuadFromPoints(pts: Point[], minArea: number): [Point, Point, Point, Point] | null {
   if (pts.length < 20) return null
-  const hull = convexHull(pts)
+
+  // Subsamplear para evitar stack overflow con Math.max/spread en arrays grandes
+  const MAX_PTS = 2000
+  const sampled = pts.length > MAX_PTS
+    ? pts.filter((_, i) => i % Math.ceil(pts.length / MAX_PTS) === 0)
+    : pts
+
+  const hull = convexHull(sampled)
   if (hull.length < 4) return null
-  const xs = pts.map(p => p.x), ys = pts.map(p => p.y)
-  const diag = Math.sqrt(
-    (Math.max(...xs) - Math.min(...xs)) ** 2 +
-    (Math.max(...ys) - Math.min(...ys)) ** 2
-  )
+
+  // Usar loop en vez de spread para evitar RangeError en mobile
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const p of sampled) {
+    if (p.x < minX) minX = p.x
+    if (p.x > maxX) maxX = p.x
+    if (p.y < minY) minY = p.y
+    if (p.y > maxY) maxY = p.y
+  }
+  const diag = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2)
+
   for (const factor of [0.02, 0.04, 0.06, 0.08, 0.12]) {
     const simplified = douglasPeucker(hull, factor * diag)
     if (simplified.length >= 4 && simplified.length <= 7) {
@@ -375,8 +388,8 @@ export function detectDocumentCorners(
   canvas: HTMLCanvasElement,
   onDebug?: (d: ScanDebugInfo) => void,
 ): Point[] | null {
-  const DETECT_W = 640
-  const DETECT_H = 480
+  const DETECT_W = 320
+  const DETECT_H = 240
   const TOTAL = DETECT_W * DETECT_H
   const scaleX = canvas.width / DETECT_W
   const scaleY = canvas.height / DETECT_H
@@ -398,7 +411,7 @@ export function detectDocumentCorners(
   for (let i = 0; i < blurData.data.length; i += 4) {
     if (blurData.data[i] > otsuT) { binary[i >> 2] = 255; binaryPx++ }
   }
-  const eroded = erode(binary, DETECT_W, DETECT_H, 4)
+  const eroded = erode(binary, DETECT_W, DETECT_H, 2)
   const brightPts = findLargestComponent(eroded, DETECT_W, DETECT_H)
 
   const dbg: ScanDebugInfo = {

@@ -143,14 +143,19 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
     const tick = async () => {
       if (!running) return
-      const video = videoRef.current
-      if (video && video.readyState >= 2) {
-        const frame = captureVideoFrame(video)
-        const corners = detectDocumentCorners(frame, addLog)
-        detectedCornersRef.current = corners
-        drawOverlay(corners)
+      try {
+        const video = videoRef.current
+        if (video && video.readyState >= 2) {
+          const frame = captureVideoFrame(video)
+          const corners = detectDocumentCorners(frame, addLog)
+          detectedCornersRef.current = corners
+          drawOverlay(corners)
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        setDebugLog((prev) => [`ERROR: ${msg}`, ...prev].slice(0, 30))
       }
-      if (running) setTimeout(tick, 300)
+      if (running) setTimeout(tick, 400)
     }
     tick()
 
