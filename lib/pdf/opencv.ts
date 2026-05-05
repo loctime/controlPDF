@@ -25,7 +25,7 @@ export type OpenCvLike = {
 
 export type OpenCvStatus = "loading" | "loaded" | "failed"
 
-const OPENCV_SRC = "https://docs.opencv.org/4.x/opencv.js"
+const OPENCV_SRC = "/opencv.js"
 let loadPromise: Promise<OpenCvLike | null> | null = null
 let status: OpenCvStatus = "loading"
 const listeners = new Set<(next: OpenCvStatus) => void>()
