@@ -31,6 +31,7 @@ const AUTO_CAPTURE_DELAY_FRAMES = 4
 const AUTO_CAPTURE_COOLDOWN_MS = 2500
 const DETECTION_MAX_SIDE = 720
 const MAX_DEBUG_LINES = 8
+const CAMERA_REQUEST_TIMEOUT_MS = 8000
 
 function categorizeError(err: unknown): string {
   if (err instanceof DOMException) {
@@ -106,6 +107,25 @@ function captureDetectionFrame(video: HTMLVideoElement): {
     scaleX: sourceW / targetW,
     scaleY: sourceH / targetH,
   }
+}
+
+async function requestCameraStream(constraints: MediaStreamConstraints): Promise<MediaStream> {
+  return new Promise<MediaStream>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error("camera-timeout"))
+    }, CAMERA_REQUEST_TIMEOUT_MS)
+
+    navigator.mediaDevices
+      .getUserMedia(constraints)
+      .then((stream) => {
+        window.clearTimeout(timeout)
+        resolve(stream)
+      })
+      .catch((error) => {
+        window.clearTimeout(timeout)
+        reject(error)
+      })
+  })
 }
 
 export function ScanCamera({ onCapture }: ScanCameraProps) {
@@ -231,34 +251,51 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
   useEffect(() => {
     const unsubscribe = subscribeOpenCvStatus(setOpenCvStatus)
-    if (!safeMode) {
+    if (cameraState === "streaming" && !safeMode) {
       pushDebug("cargando opencv en segundo plano")
       void startLoadOpenCv()
-    } else {
+    } else if (safeMode) {
       pushDebug("opencv omitido en modo seguro")
     }
     return unsubscribe
-  }, [pushDebug, safeMode])
+  }, [cameraState, pushDebug, safeMode])
 
   useEffect(() => {
     let running = true
     let stream: MediaStream | null = null
 
     async function start() {
+      if (!window.isSecureContext) {
+        const message = "La camara requiere HTTPS o localhost seguro."
+        setErrorMsg(message)
+        setCameraState("error")
+        pushDebug("contexto inseguro para camara")
+        return
+      }
+
       pushDebug("solicitando acceso a camara")
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        stream = await requestCameraStream({
           video: { facingMode: { ideal: "environment" }, width: { ideal: 960 } },
+          audio: false,
         })
-      } catch {
+      } catch (primaryErr) {
         try {
-          pushDebug("fallback a camara generica")
-          stream = await navigator.mediaDevices.getUserMedia({ video: true })
+          pushDebug(
+            primaryErr instanceof Error && primaryErr.message === "camera-timeout"
+              ? "timeout pidiendo camara trasera, fallback a camara generica"
+              : "fallback a camara generica",
+          )
+          stream = await requestCameraStream({ video: true, audio: false })
         } catch (err) {
           if (running) {
-            setErrorMsg(categorizeError(err))
+            const message =
+              err instanceof Error && err.message === "camera-timeout"
+                ? "La camara no respondio a tiempo. Cerra otras apps que usen la camara e intenta de nuevo."
+                : categorizeError(err)
+            setErrorMsg(message)
             setCameraState("error")
-            pushDebug(`error de camara: ${categorizeError(err)}`)
+            pushDebug(`error de camara: ${message}`)
           }
           return
         }
