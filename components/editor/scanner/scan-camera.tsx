@@ -271,20 +271,29 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
       const video = videoRef.current
       if (video) {
+        let markedStreaming = false
+        const markStreaming = () => {
+          if (!running || markedStreaming) return
+          markedStreaming = true
+          setCameraState("streaming")
+          pushDebug("stream iniciado")
+        }
+
         video.srcObject = stream
         video.onloadedmetadata = () => {
           pushDebug(`metadata ${video.videoWidth}x${video.videoHeight}`)
+          markStreaming()
         }
         video.oncanplay = () => {
           pushDebug("video listo para reproducir")
+          markStreaming()
         }
         video.play()
-          .then(() => pushDebug("play() ok"))
+          .then(() => {
+            pushDebug("play() ok")
+            markStreaming()
+          })
           .catch(() => pushDebug("play() fallo"))
-      }
-      if (running) {
-        setCameraState("streaming")
-        pushDebug("stream iniciado")
       }
     }
 
