@@ -203,16 +203,30 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     const isMobile =
       typeof navigator !== "undefined" &&
       /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-    const lowMemory =
+    const deviceMemory =
       typeof navigator !== "undefined" &&
       "deviceMemory" in navigator &&
       typeof navigator.deviceMemory === "number" &&
-      navigator.deviceMemory <= 4
-    const nextSafeMode = isMobile || lowMemory
+      navigator.deviceMemory > 0
+        ? navigator.deviceMemory
+        : null
+    const hardwareConcurrency =
+      typeof navigator !== "undefined" &&
+      typeof navigator.hardwareConcurrency === "number" &&
+      navigator.hardwareConcurrency > 0
+        ? navigator.hardwareConcurrency
+        : null
+    const lowMemory = deviceMemory !== null && deviceMemory <= 2
+    const lowCpu = hardwareConcurrency !== null && hardwareConcurrency <= 4
+    const nextSafeMode = lowMemory || (isMobile && lowCpu)
     setSafeMode(nextSafeMode)
-    pushDebug(
-      `modo ${nextSafeMode ? "seguro" : "completo"} activado${lowMemory ? " por memoria" : ""}`,
-    )
+    const reasons = [
+      lowMemory ? `memoria ${deviceMemory}GB` : null,
+      isMobile && lowCpu ? `cpu ${hardwareConcurrency} cores` : null,
+    ]
+      .filter(Boolean)
+      .join(", ")
+    pushDebug(`modo ${nextSafeMode ? "seguro" : "completo"} activado${reasons ? ` (${reasons})` : ""}`)
   }, [pushDebug])
 
   useEffect(() => {
