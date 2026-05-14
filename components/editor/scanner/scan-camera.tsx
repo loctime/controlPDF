@@ -30,6 +30,7 @@ type DetectionState = "searching" | "ready" | "capturing"
 const AUTO_CAPTURE_DELAY_FRAMES = 4
 const AUTO_CAPTURE_COOLDOWN_MS = 2500
 const DETECTION_MAX_SIDE = 720
+const MAX_DEBUG_LINES = 8
 
 function categorizeError(err: unknown): string {
   if (err instanceof DOMException) {
@@ -122,6 +123,17 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
   const [detectionState, setDetectionState] = useState<DetectionState>("searching")
   const [errorMsg, setErrorMsg] = useState("")
   const [opencvStatus, setOpenCvStatus] = useState<OpenCvStatus>(getOpenCvStatus())
+  const [debugLines, setDebugLines] = useState<string[]>([])
+  const [safeMode, setSafeMode] = useState(false)
+
+  const pushDebug = useCallback((message: string) => {
+    const stamp = new Date().toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+    setDebugLines((prev) => [...prev.slice(-(MAX_DEBUG_LINES - 1)), `${stamp} ${message}`])
+  }, [])
 
   const drawOverlay = useCallback(
     (corners: Point[] | null) => {
@@ -188,27 +200,51 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
   }, [onCapture])
 
   useEffect(() => {
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    const lowMemory =
+      typeof navigator !== "undefined" &&
+      "deviceMemory" in navigator &&
+      typeof navigator.deviceMemory === "number" &&
+      navigator.deviceMemory <= 4
+    const nextSafeMode = isMobile || lowMemory
+    setSafeMode(nextSafeMode)
+    pushDebug(
+      `modo ${nextSafeMode ? "seguro" : "completo"} activado${lowMemory ? " por memoria" : ""}`,
+    )
+  }, [pushDebug])
+
+  useEffect(() => {
     const unsubscribe = subscribeOpenCvStatus(setOpenCvStatus)
-    void startLoadOpenCv()
+    if (!safeMode) {
+      pushDebug("cargando opencv en segundo plano")
+      void startLoadOpenCv()
+    } else {
+      pushDebug("opencv omitido en modo seguro")
+    }
     return unsubscribe
-  }, [])
+  }, [pushDebug, safeMode])
 
   useEffect(() => {
     let running = true
     let stream: MediaStream | null = null
 
     async function start() {
+      pushDebug("solicitando acceso a camara")
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 960 } },
         })
       } catch {
         try {
+          pushDebug("fallback a camara generica")
           stream = await navigator.mediaDevices.getUserMedia({ video: true })
         } catch (err) {
           if (running) {
             setErrorMsg(categorizeError(err))
             setCameraState("error")
+            pushDebug(`error de camara: ${categorizeError(err)}`)
           }
           return
         }
@@ -222,9 +258,20 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
       const video = videoRef.current
       if (video) {
         video.srcObject = stream
-        video.play().catch(() => {})
+        video.onloadedmetadata = () => {
+          pushDebug(`metadata ${video.videoWidth}x${video.videoHeight}`)
+        }
+        video.oncanplay = () => {
+          pushDebug("video listo para reproducir")
+        }
+        video.play()
+          .then(() => pushDebug("play() ok"))
+          .catch(() => pushDebug("play() fallo"))
       }
-      if (running) setCameraState("streaming")
+      if (running) {
+        setCameraState("streaming")
+        pushDebug("stream iniciado")
+      }
     }
 
     start()
@@ -237,7 +284,13 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
   useEffect(() => {
     if (cameraState !== "streaming") return
+    if (safeMode) {
+      setDetectionState("searching")
+      pushDebug("deteccion en vivo desactivada en modo seguro")
+      return
+    }
     let running = true
+    let loopCount = 0
 
     const tick = async () => {
       if (!running) return
@@ -245,16 +298,25 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
       try {
         const video = videoRef.current
         if (video && video.readyState >= 2) {
+          loopCount++
           const { canvas: detectionFrame, scaleX, scaleY } = captureDetectionFrame(video)
           const frameWidth = video.videoWidth || detectionFrame.width
           const frameHeight = video.videoHeight || detectionFrame.height
           const previous = smoothedCornersRef.current
+          const startedAt = performance.now()
           const rawDetected = await detectDocumentCorners(detectionFrame)
+          const elapsed = Math.round(performance.now() - startedAt)
           const raw =
             rawDetected?.map((point) => ({
               x: point.x * scaleX,
               y: point.y * scaleY,
             })) ?? null
+
+          if (loopCount <= 3 || loopCount % 5 === 0) {
+            pushDebug(
+              `deteccion ${raw ? "ok" : "sin hallazgo"} en ${elapsed}ms a ${detectionFrame.width}x${detectionFrame.height}`,
+            )
+          }
 
           if (raw && raw.length === 4) {
             hitCountRef.current++
@@ -334,7 +396,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     return () => {
       running = false
     }
-  }, [cameraState, drawOverlay, handleCapture, opencvStatus])
+  }, [cameraState, drawOverlay, handleCapture, opencvStatus, pushDebug, safeMode])
 
   return (
     <div className="space-y-2">
@@ -384,7 +446,9 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
       {cameraState === "streaming" && (
         <div className="space-y-2">
           <p className="text-center text-xs text-muted-foreground">
-            Alinea la hoja completa. Si la deteccion se estabiliza, la captura sale automatica.
+            {safeMode
+              ? "Modo seguro activo: captura manual para evitar que el celular se congele."
+              : "Alinea la hoja completa. Si la deteccion se estabiliza, la captura sale automatica."}
           </p>
           <div className="flex justify-center">
             <Button
@@ -397,6 +461,16 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
           </div>
         </div>
       )}
+
+      <div className="rounded-md border bg-muted/40 p-2">
+        <p className="mb-1 text-xs font-medium text-foreground">Logs de camara</p>
+        <div className="space-y-1 font-mono text-[11px] text-muted-foreground">
+          {debugLines.length === 0 && <p>Sin eventos todavia...</p>}
+          {debugLines.map((line, index) => (
+            <p key={`${line}-${index}`}>{line}</p>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
