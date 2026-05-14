@@ -29,6 +29,7 @@ type DetectionState = "searching" | "ready" | "capturing"
 
 const AUTO_CAPTURE_DELAY_FRAMES = 4
 const AUTO_CAPTURE_COOLDOWN_MS = 2500
+const DETECTION_MAX_SIDE = 720
 
 function categorizeError(err: unknown): string {
   if (err instanceof DOMException) {
@@ -80,6 +81,29 @@ function getRenderedVideoRect(video: HTMLVideoElement, overlay: HTMLCanvasElemen
     y: (containerH - height) / 2,
     width,
     height,
+  }
+}
+
+function captureDetectionFrame(video: HTMLVideoElement): {
+  canvas: HTMLCanvasElement
+  scaleX: number
+  scaleY: number
+} {
+  const sourceW = video.videoWidth || video.clientWidth
+  const sourceH = video.videoHeight || video.clientHeight
+  const longestSide = Math.max(sourceW, sourceH, 1)
+  const ratio = Math.min(1, DETECTION_MAX_SIDE / longestSide)
+  const targetW = Math.max(1, Math.round(sourceW * ratio))
+  const targetH = Math.max(1, Math.round(sourceH * ratio))
+  const canvas = document.createElement("canvas")
+  canvas.width = targetW
+  canvas.height = targetH
+  canvas.getContext("2d")!.drawImage(video, 0, 0, targetW, targetH)
+
+  return {
+    canvas,
+    scaleX: sourceW / targetW,
+    scaleY: sourceH / targetH,
   }
 }
 
@@ -176,7 +200,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     async function start() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 } },
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
         })
       } catch {
         try {
@@ -221,9 +245,16 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
       try {
         const video = videoRef.current
         if (video && video.readyState >= 2) {
-          const frame = captureVideoFrame(video)
+          const { canvas: detectionFrame, scaleX, scaleY } = captureDetectionFrame(video)
+          const frameWidth = video.videoWidth || detectionFrame.width
+          const frameHeight = video.videoHeight || detectionFrame.height
           const previous = smoothedCornersRef.current
-          const raw = await detectDocumentCorners(frame)
+          const rawDetected = await detectDocumentCorners(detectionFrame)
+          const raw =
+            rawDetected?.map((point) => ({
+              x: point.x * scaleX,
+              y: point.y * scaleY,
+            })) ?? null
 
           if (raw && raw.length === 4) {
             hitCountRef.current++
@@ -248,18 +279,18 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
           detectedCornersRef.current = smoothed
 
           if (smoothed && smoothed.length === 4) {
-            const areaRatio = polygonArea(smoothed) / (frame.width * frame.height)
-            const margin = Math.min(frame.width, frame.height) * 0.03
+            const areaRatio = polygonArea(smoothed) / (frameWidth * frameHeight)
+            const margin = Math.min(frameWidth, frameHeight) * 0.03
             const insideFrame = smoothed.every(
               (point) =>
                 point.x >= margin &&
                 point.y >= margin &&
-                point.x <= frame.width - margin &&
-                point.y <= frame.height - margin,
+                point.x <= frameWidth - margin &&
+                point.y <= frameHeight - margin,
             )
             const stability =
               previous && previous.length === 4
-                ? averageCornerDelta(smoothed, previous) / Math.hypot(frame.width, frame.height)
+                ? averageCornerDelta(smoothed, previous) / Math.hypot(frameWidth, frameHeight)
                 : 0
             const ready = insideFrame && areaRatio >= 0.05 && stability <= 0.02
 
@@ -292,7 +323,10 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
         // Mantener el loop activo aunque falle una iteracion.
       }
 
-      if (running) setTimeout(tick, 300)
+      if (running) {
+        const delay = opencvStatus === "loaded" ? 320 : 550
+        setTimeout(tick, delay)
+      }
     }
 
     tick()
@@ -300,7 +334,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
     return () => {
       running = false
     }
-  }, [cameraState, drawOverlay, handleCapture])
+  }, [cameraState, drawOverlay, handleCapture, opencvStatus])
 
   return (
     <div className="space-y-2">
