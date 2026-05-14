@@ -1,5 +1,5 @@
 import { PDFDocument } from "@cantoo/pdf-lib"
-import { loadOpenCv, type OpenCvLike } from "@/lib/pdf/opencv"
+import { getOpenCvIfReady, startLoadOpenCv, type OpenCvLike } from "@/lib/pdf/opencv"
 
 export type ScanMode = "document" | "color" | "bw" | "photo"
 
@@ -266,7 +266,7 @@ function detectWithOpenCv(canvas: HTMLCanvasElement, cv: OpenCvLike): Point[] | 
     cv.Canny(blur, edges, 75, 200)
     cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-    const areaFloor = canvas.width * canvas.height * 0.08
+    const areaFloor = canvas.width * canvas.height * 0.04
     let best: Point[] | null = null
     let bestArea = 0
 
@@ -563,7 +563,7 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
   if (edgeCount < 80) return null
 
   const { acc, rhoN, offset } = houghAccumulate(edges, w, h)
-  const minVotes = Math.max(40, Math.floor(edgeCount * 0.05))
+  const minVotes = Math.max(24, Math.floor(edgeCount * 0.035))
   const peaks = houghPeaks(acc, rhoN, 30, minVotes)
   if (peaks.length < 4) return null
 
@@ -594,7 +594,7 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
   }
 
   const quad = sortCorners(corners)
-  if (polygonArea(quad) < w * h * 0.12) return null
+  if (polygonArea(quad) < w * h * 0.05) return null
 
   // Permitir corners ligeramente fuera del frame (documento que sobresale)
   const margin = Math.max(w, h) * 0.35
@@ -609,8 +609,11 @@ function detectByHough(edges: Uint8Array, w: number, h: number): Point[] | null 
 export async function detectDocumentCorners(
   canvas: HTMLCanvasElement,
 ): Promise<Point[] | null> {
-  const cv = await loadOpenCv()
-  if (!cv) return detectDocumentCornersFallback(canvas)
+  const cv = getOpenCvIfReady()
+  if (!cv) {
+    void startLoadOpenCv()
+    return detectDocumentCornersFallback(canvas)
+  }
 
   try {
     return detectWithOpenCv(canvas, cv)
@@ -622,7 +625,7 @@ export async function detectDocumentCorners(
 function detectDocumentCornersFallback(
   canvas: HTMLCanvasElement,
 ): Point[] | null {
-  const DETECT_W = 400
+  const DETECT_W = 512
   const DETECT_H = Math.round(canvas.height * (DETECT_W / canvas.width))
   const TOTAL = DETECT_W * DETECT_H
   const scaleX = canvas.width / DETECT_W
@@ -639,7 +642,7 @@ function detectDocumentCornersFallback(
   const blurH = gaussianBlur(gray, 2)
   const magH = sobelGradient(blurH)
   const edgesH = new Uint8Array(TOTAL)
-  for (let i = 0; i < TOTAL; i++) if (magH[i] > 70) edgesH[i] = 1
+  for (let i = 0; i < TOTAL; i++) if (magH[i] > 55) edgesH[i] = 1
 
   const houghResult = detectByHough(edgesH, DETECT_W, DETECT_H)
   if (houghResult) {
@@ -647,7 +650,7 @@ function detectDocumentCornersFallback(
   }
 
   // ── Método 2: blob brillante (fallback) ──────────────────────────────────
-  const minArea = 0.07 * TOTAL
+  const minArea = 0.035 * TOTAL
   const blurB = gaussianBlur(gray, 5)
   const blurData = canvasImageData(blurB)
   const otsuT = computeOtsu(blurData.data, TOTAL)
@@ -1038,3 +1041,4 @@ export function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: n
 export function canvasToDataUrl(canvas: HTMLCanvasElement, type = "image/jpeg", quality = 0.7): string {
   return canvas.toDataURL(type, quality)
 }
+

@@ -23,11 +23,11 @@ export type OpenCvLike = {
   contourArea: (curve: any) => number
 }
 
-export type OpenCvStatus = "loading" | "loaded" | "failed"
+export type OpenCvStatus = "idle" | "loading" | "loaded" | "failed"
 
 const OPENCV_SRC = "/opencv.js"
 let loadPromise: Promise<OpenCvLike | null> | null = null
-let status: OpenCvStatus = "loading"
+let status: OpenCvStatus = "idle"
 const listeners = new Set<(next: OpenCvStatus) => void>()
 
 function emit(next: OpenCvStatus) {
@@ -71,6 +71,10 @@ export function getOpenCvStatus(): OpenCvStatus {
   return status
 }
 
+export function getOpenCvIfReady(): OpenCvLike | null {
+  return currentCvSync()
+}
+
 export function subscribeOpenCvStatus(listener: (next: OpenCvStatus) => void): () => void {
   listeners.add(listener)
   listener(status)
@@ -79,13 +83,13 @@ export function subscribeOpenCvStatus(listener: (next: OpenCvStatus) => void): (
   }
 }
 
-export async function loadOpenCv(): Promise<OpenCvLike | null> {
+export function startLoadOpenCv(): Promise<OpenCvLike | null> {
   if (typeof window === "undefined") return null
 
-  const ready = await currentCv()
+  const ready = currentCvSync()
   if (ready) {
     emit("loaded")
-    return ready
+    return Promise.resolve(ready)
   }
 
   if (loadPromise) return loadPromise
@@ -132,4 +136,10 @@ export async function loadOpenCv(): Promise<OpenCvLike | null> {
   })
 
   return loadPromise
+}
+
+export async function loadOpenCv(): Promise<OpenCvLike | null> {
+  const started = startLoadOpenCv()
+  if (!started) return null
+  return started
 }

@@ -11,7 +11,7 @@ import {
 } from "@/lib/pdf/scanner"
 import {
   getOpenCvStatus,
-  loadOpenCv,
+  startLoadOpenCv,
   subscribeOpenCvStatus,
   type OpenCvStatus,
 } from "@/lib/pdf/opencv"
@@ -165,7 +165,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
 
   useEffect(() => {
     const unsubscribe = subscribeOpenCvStatus(setOpenCvStatus)
-    void loadOpenCv()
+    void startLoadOpenCv()
     return unsubscribe
   }, [])
 
@@ -261,7 +261,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
               previous && previous.length === 4
                 ? averageCornerDelta(smoothed, previous) / Math.hypot(frame.width, frame.height)
                 : 0
-            const ready = insideFrame && areaRatio >= 0.18 && stability <= 0.015
+            const ready = insideFrame && areaRatio >= 0.05 && stability <= 0.02
 
             if (ready) {
               readyFrameCountRef.current++
@@ -309,6 +309,7 @@ export function ScanCamera({ onCapture }: ScanCameraProps) {
         style={{ height: "min(55vh, 480px)", minHeight: "250px" }}
       >
         <div className="absolute left-3 top-3 z-10 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-xs font-medium text-white backdrop-blur">
+          {opencvStatus === "idle" && "fallback"}
           {opencvStatus === "loading" && "cargando"}
           {opencvStatus === "loaded" && "cargado"}
           {opencvStatus === "failed" && "fallo"}
