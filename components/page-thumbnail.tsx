@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Copy, Loader2, PenTool, RotateCw, X, FileWarning } from "lucide-react"
+import { Copy, Eye, Loader2, PenTool, RotateCw, X, FileWarning } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { renderThumbnail } from "@/lib/pdf"
@@ -18,6 +18,7 @@ export interface PageThumbnailProps {
   onRemove?: () => void
   onDuplicate?: () => void
   onSign?: () => void
+  onPreview?: () => void
   signed?: boolean
   className?: string
   lazy?: boolean
@@ -35,6 +36,7 @@ export function PageThumbnail({
   onRemove,
   onDuplicate,
   onSign,
+  onPreview,
   signed,
   className,
   lazy = true,
@@ -128,8 +130,28 @@ export function PageThumbnail({
         ) : (
           <div className="h-full w-full" aria-hidden="true" />
         )}
-        {(onRotate || onRemove || onDuplicate || onSign) && (
+        {(onPreview || onRotate || onRemove || onDuplicate || onSign) && (
           <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            {onPreview && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onPreview()
+                    }}
+                    aria-label={`Ver página ${pageNumber}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-md bg-background/90 text-foreground shadow hover:bg-background"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ver página</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             {onRotate && (
               <Tooltip>
                 <TooltipTrigger asChild>

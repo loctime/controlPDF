@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
+import { Upload } from "lucide-react"
 import { toast } from "sonner"
 import { useEditorStore } from "@/lib/editor/store"
 import { EmptyState } from "./empty-state"
 import { PageGrid } from "./page-grid"
-import { SourceChipBar } from "./source-chip-bar"
 import { SelectionToolbar } from "./selection-toolbar"
 import { EditorToolbar } from "./editor-toolbar"
 
@@ -20,16 +20,14 @@ const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
 export function PdfEditor() {
   const pageCount = useEditorStore((s) => s.pages.length)
-  const visibleCount = useEditorStore(
-    (s) => s.pages.filter((p) => !p.deleted).length,
-  )
-  const sourceCount = useEditorStore((s) => s.sourceOrder.length)
   const addSources = useEditorStore((s) => s.addSources)
   const clearAll = useEditorStore((s) => s.clearAll)
   const selectAll = useEditorStore((s) => s.selectAll)
   const clearSelection = useEditorStore((s) => s.clearSelection)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [scanOpen, setScanOpen] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragCounter = useRef(0)
 
   const isMac = useMemo(
     () =>
@@ -64,6 +62,45 @@ export function PdfEditor() {
       useEditorStore.getState().clearAll()
     }
   }, [])
+
+  useEffect(() => {
+    if (pageCount === 0) return
+
+    const onDragEnter = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes("Files")) return
+      e.preventDefault()
+      dragCounter.current++
+      if (dragCounter.current === 1) setIsDragOver(true)
+    }
+    const onDragOver = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes("Files")) return
+      e.preventDefault()
+    }
+    const onDragLeave = (e: DragEvent) => {
+      dragCounter.current--
+      if (dragCounter.current === 0) setIsDragOver(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounter.current = 0
+      setIsDragOver(false)
+      const files = Array.from(e.dataTransfer?.files ?? []).filter(
+        (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.type.startsWith("image/"),
+      )
+      if (files.length > 0) handleFilesAdded(files)
+    }
+
+    window.addEventListener("dragenter", onDragEnter)
+    window.addEventListener("dragover", onDragOver)
+    window.addEventListener("dragleave", onDragLeave)
+    window.addEventListener("drop", onDrop)
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter)
+      window.removeEventListener("dragover", onDragOver)
+      window.removeEventListener("dragleave", onDragLeave)
+      window.removeEventListener("drop", onDrop)
+    }
+  }, [pageCount, handleFilesAdded])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -113,7 +150,16 @@ export function PdfEditor() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      {isDragOver && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-primary/5 px-16 py-12">
+            <Upload className="h-12 w-12 text-primary" />
+            <p className="text-lg font-medium text-foreground">Soltá para agregar</p>
+            <p className="text-sm text-muted-foreground">PDF o imágenes</p>
+          </div>
+        </div>
+      )}
       <input
         ref={fileInputRef}
         type="file"
@@ -134,12 +180,7 @@ export function PdfEditor() {
         onScan={() => setScanOpen(true)}
       />
       <ScanModal open={scanOpen} onOpenChange={setScanOpen} />
-      <SourceChipBar />
-      <div className="text-xs text-muted-foreground">
-        {sourceCount} {sourceCount === 1 ? "archivo" : "archivos"} ·{" "}
-        {visibleCount} de {pageCount} {pageCount === 1 ? "página" : "páginas"}
-      </div>
-      <PageGrid />
+      <PageGrid onAddFiles={() => fileInputRef.current?.click()} />
       <SelectionToolbar />
     </div>
   )

@@ -82,17 +82,6 @@ const newId = () => crypto.randomUUID()
 
 const normalizeRotation = (r: number) => ((r % 360) + 360) % 360
 
-const inferGroupForPosition = (
-  pages: PageEntry[],
-  insertIndex: number,
-): GroupId | null => {
-  const before = pages[insertIndex - 1]
-  const after = pages[insertIndex]
-  if (before && after && before.groupId === after.groupId) return before.groupId
-  if (before) return before.groupId
-  if (after) return after.groupId
-  return null
-}
 
 export const useEditorStore = create<Store>((set, get) => {
   const pushHistory = () => {
@@ -232,13 +221,13 @@ export const useEditorStore = create<Store>((set, get) => {
       const toIdx = s.pages.findIndex((p) => p.id === overId)
       if (fromIdx === -1 || toIdx === -1) return
       pushHistory()
+      const moved = s.pages[fromIdx]
+      const target = s.pages[toIdx]
       const without = s.pages.filter((_, i) => i !== fromIdx)
       const insertIdx = without.findIndex((p) => p.id === overId)
       const positionForInsert = fromIdx < toIdx ? insertIdx + 1 : insertIdx
-      const moved = s.pages[fromIdx]
-      const inferredGroup = inferGroupForPosition(without, positionForInsert)
       const next = [...without]
-      next.splice(positionForInsert, 0, { ...moved, groupId: inferredGroup })
+      next.splice(positionForInsert, 0, { ...moved, groupId: target.groupId })
       set({ pages: next })
     },
 

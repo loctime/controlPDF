@@ -57,9 +57,9 @@ const COMPRESS_PROFILES: Record<
   CompressLevel,
   { scale: number; quality: number }
 > = {
-  low: { scale: 2.0, quality: 0.85 },
-  medium: { scale: 1.5, quality: 0.7 },
-  high: { scale: 1.25, quality: 0.5 },
+  low: { scale: 2.5, quality: 0.9 },
+  medium: { scale: 2.0, quality: 0.8 },
+  high: { scale: 1.5, quality: 0.65 },
 }
 
 const sanitize = (s: string) =>
@@ -555,7 +555,7 @@ async function convertPagesToImages(
     const blob = await renderPageToBlob(src.file, entry.sourcePageIndex + 1, {
       scale,
       format: mime,
-      quality: 0.92,
+      quality: op.quality ?? 0.92,
       rotation: entry.rotation,
     })
     const padded = String(idx + 1).padStart(padTo, "0")

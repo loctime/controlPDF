@@ -1,36 +1,45 @@
 # ControlPDF
 
-Suite de herramientas PDF que corren **100% en el navegador**. Sin login, sin subir archivos a ningún servidor.
+Editor de PDF visual que corre **100% en el navegador**. Sin login, sin subir archivos a ningún servidor.
 
 ## Funcionalidades
 
-### Organizar
-- 🔗 **Unir PDF** — combiná varios PDFs en uno (orden por drag & drop, eliminá páginas individuales antes de unir).
-- ✂️ **Dividir PDF** — extraé por rangos, cada N páginas o por selección visual.
-- 🔃 **Rotar PDF** — todo el documento o página por página.
+### Editor visual
+- **Grilla de páginas** — vista en miniatura de todas las páginas con drag & drop para reordenar.
+- **Grupos** — agrupá páginas seleccionadas en segmentos; cada grupo se exporta como PDF separado.
+- **Selección múltiple** — Shift+click (rango), Ctrl/Cmd+click (individual), Ctrl+A (todo).
+- **Vista previa** — abrí cualquier página ampliada con zoom (rueda), pan (arrastre) y botones +/−.
+- **Agregar archivos** — botón "+", arrastrar sobre la pantalla, o Ctrl+O. Acepta PDF e imágenes.
+- **Descargar seleccionadas** — descargá solo las páginas seleccionadas desde el menú contextual.
 
-### Convertir y comprimir
-- 🖼️ **PDF a imagen** — exportá cada página como JPG o PNG (descarga directa o ZIP).
-- 📦 **Comprimir** — re-encodá las páginas a JPG; muestra reducción real en %.
+### Operaciones globales
+- 💧 **Marca de agua** — texto, posición, color, opacidad y rotación configurables, por rango de páginas.
+- 🔢 **Numerar páginas** — formato, posición y margen configurables; opción de saltear la primera página.
+- 📦 **Comprimir** — tres perfiles (Suave ~180 DPI / Medio ~144 DPI / Fuerte ~108 DPI).
+- 🖼️ **Convertir a imagen** — exportá páginas como JPG (calidad configurable) o PNG, por rango.
+- 📝 **OCR** — capa de texto con tesseract.js; modos superposición y reconstrucción. Idiomas: es, en, pt, fr, de, it.
+- 🔒 **Proteger** — encriptación con contraseña y permisos granulares (imprimir, copiar, modificar, anotar).
+- ℹ️ **Metadatos** — título, autor, asunto y palabras clave.
 
-### Editar
-- 🔢 **Numerar** — números de página con formato y posición a elección, soporta saltear primera página.
-- 💧 **Marca de agua** — texto, color, opacidad y rotación configurables.
-- ℹ️ **Metadatos** — editá título, autor, asunto y palabras clave.
+### Edición por página
+- **Rotar** — 90° por clic desde la miniatura o la barra de selección.
+- **Duplicar** — copia la página en el lugar.
+- **Eliminar / restaurar** — las páginas eliminadas se muestran tachadas y se pueden restaurar.
+- **Firmar** — dibujá, subí imagen o tipeá una firma; arrastrala sobre la página.
+- **Descargar con OCR** — extrae texto de una sola página vía menú contextual.
 
-### Seguridad y firma
-- 🔒 **Proteger / Desbloquear** — encriptación con contraseña y permisos granulares (imprimir, copiar, modificar, anotar).
-- ✍️ **Firmar** — dibujá, subí una imagen o tipeá una firma; arrastrala sobre la página.
-- 📝 **OCR** — reconocimiento de texto en PDFs escaneados con tesseract.js, generando un PDF con capa de texto buscable. Soporta español, inglés, portugués, francés, alemán e italiano.
+### Escanear
+- Capturá documentos físicos con la cámara y agregalos al editor como páginas.
 
 ## Stack
 
-- **Next.js 16** + **React 19** + **TypeScript**
-- **Tailwind CSS v4** + **Radix UI** + **Sonner** + **next-themes**
-- **@cantoo/pdf-lib** (manipulación de PDF + encriptación)
-- **pdfjs-dist** (render de páginas, lazy)
-- **tesseract.js** (OCR, lazy)
-- **jszip** (zips multi-archivo, lazy)
+- **Next.js** + **React** + **TypeScript**
+- **Tailwind CSS v4** + **Radix UI** + **shadcn/ui** + **Sonner** + **next-themes**
+- **@cantoo/pdf-lib** — manipulación de PDF y encriptación
+- **pdfjs-dist** — render de páginas
+- **tesseract.js** — OCR (lazy)
+- **@dnd-kit** — drag & drop de páginas
+- **jszip** — exportación multi-archivo (lazy)
 
 ## Desarrollo
 
@@ -48,10 +57,17 @@ pnpm build
 pnpm start
 ```
 
-## Atajos
+## Atajos de teclado
 
-- `Cmd/Ctrl + Enter` — ejecutar la herramienta activa.
+| Atajo | Acción |
+|---|---|
+| `Ctrl/Cmd + O` | Agregar archivos |
+| `Ctrl/Cmd + A` | Seleccionar todo |
+| `Shift + Click` | Selección por rango |
+| `Ctrl/Cmd + Click` | Selección individual |
+| `Escape` | Limpiar selección / cerrar editor |
+| `?` | Ver todos los atajos |
 
 ## Privacidad
 
-Toda la lógica de procesamiento corre del lado del cliente: pdf-lib, pdfjs y tesseract.js trabajan en el navegador. No hay backend; los archivos no salen de tu computadora.
+Todo el procesamiento corre en el navegador: pdf-lib, pdfjs y tesseract.js trabajan localmente. No hay backend; los archivos no salen de tu computadora.

@@ -9,9 +9,9 @@ interface CompressProfile {
 }
 
 const PROFILES: Record<CompressLevel, CompressProfile> = {
-  low: { scale: 2.0, quality: 0.85 },
-  medium: { scale: 1.5, quality: 0.7 },
-  high: { scale: 1.25, quality: 0.5 },
+  low: { scale: 2.5, quality: 0.9 },
+  medium: { scale: 2.0, quality: 0.8 },
+  high: { scale: 1.5, quality: 0.65 },
 }
 
 export interface CompressOptions {

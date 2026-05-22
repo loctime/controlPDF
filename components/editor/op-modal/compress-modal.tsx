@@ -26,10 +26,12 @@ const LEVELS: Array<{
   value: CompressLevel
   label: string
   hint: string
+  dpi: number
+  quality: number
 }> = [
-  { value: "low", label: "Suave", hint: "Calidad alta · ahorro menor" },
-  { value: "medium", label: "Medio", hint: "Calidad media · buen ahorro" },
-  { value: "high", label: "Fuerte", hint: "Calidad baja · máximo ahorro" },
+  { value: "low", label: "Suave", hint: "~180 DPI · calidad alta", dpi: 180, quality: 90 },
+  { value: "medium", label: "Medio", hint: "~144 DPI · buen balance", dpi: 144, quality: 80 },
+  { value: "high", label: "Fuerte", hint: "~108 DPI · máximo ahorro", dpi: 108, quality: 65 },
 ]
 
 export function CompressModal({ open, onOpenChange }: Props) {
@@ -87,6 +89,7 @@ export function CompressModal({ open, onOpenChange }: Props) {
               >
                 <span className="font-medium">{l.label}</span>
                 <span className="text-xs text-muted-foreground">{l.hint}</span>
+                <span className="text-xs text-muted-foreground/70 mt-1">JPEG {l.quality}%</span>
               </button>
             ))}
           </div>

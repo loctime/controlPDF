@@ -79,6 +79,7 @@ export interface ConvertOp {
   scope: PageScope
   format: ImageFormat
   dpi: number
+  quality?: number
 }
 export interface OcrOp {
   enabled: boolean

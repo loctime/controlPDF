@@ -17,12 +17,47 @@ import {
   rectSortingStrategy,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable"
+import { Plus } from "lucide-react"
 import { useEditorStore } from "@/lib/editor/store"
 import { PageCard } from "./page-card"
 import { SignModal } from "./sign-modal"
 import type { GroupId, PageId } from "@/lib/editor/types"
+import { cn } from "@/lib/utils"
 
-export function PageGrid() {
+const THUMB_WIDTH = 200
+
+function AddPageCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ width: THUMB_WIDTH }}
+      className={cn(
+        "group flex flex-col rounded-lg border-2 border-dashed border-border bg-card",
+        "transition-all duration-150 hover:border-primary/60 hover:bg-primary/5 hover:shadow-sm",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+      )}
+      aria-label="Agregar más archivos"
+    >
+      <div
+        className="relative flex w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-t-lg bg-muted/50 text-muted-foreground transition-colors group-hover:text-primary"
+        style={{ aspectRatio: "210 / 297" }}
+      >
+        <Plus className="h-10 w-10 stroke-[1.5]" />
+        <span className="text-xs font-medium">Agregar</span>
+      </div>
+      <div className="flex items-center justify-center px-2 py-1 text-xs text-muted-foreground">
+        &nbsp;
+      </div>
+    </button>
+  )
+}
+
+interface PageGridProps {
+  onAddFiles?: () => void
+}
+
+export function PageGrid({ onAddFiles }: PageGridProps) {
   const pages = useEditorStore((s) => s.pages)
   const groupOrder = useEditorStore((s) => s.groupOrder)
   const groups = useEditorStore((s) => s.groups)
@@ -108,6 +143,11 @@ export function PageGrid() {
                 </div>
               )
             })}
+            {onAddFiles && (
+              <div className="pt-[35px]">
+                <AddPageCard onClick={onAddFiles} />
+              </div>
+            )}
           </div>
         </SortableContext>
         <DragOverlay>

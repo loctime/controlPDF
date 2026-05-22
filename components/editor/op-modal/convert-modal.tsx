@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
 import {
   Select,
   SelectContent,
@@ -39,15 +40,23 @@ export function ConvertModal({ open, onOpenChange }: Props) {
   )
   const [format, setFormat] = useState<ImageFormat>(existing?.format ?? "jpeg")
   const [dpi, setDpi] = useState<number>(existing?.dpi ?? 150)
+  const [quality, setQuality] = useState<number>(existing?.quality ?? 92)
 
   const reset = () => {
     setScope(existing?.scope ?? { kind: "all" })
     setFormat(existing?.format ?? "jpeg")
     setDpi(existing?.dpi ?? 150)
+    setQuality(existing?.quality ?? 92)
   }
 
   const save = () => {
-    const op: ConvertOp = { enabled: true, scope, format, dpi }
+    const op: ConvertOp = {
+      enabled: true,
+      scope,
+      format,
+      dpi,
+      quality: format === "jpeg" ? quality / 100 : undefined,
+    }
     setGlobalOp("convert", op)
     onOpenChange(false)
   }
@@ -102,6 +111,24 @@ export function ConvertModal({ open, onOpenChange }: Props) {
               />
             </div>
           </div>
+          {format === "jpeg" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Calidad JPG</Label>
+                <span className="text-sm text-muted-foreground">{quality}%</span>
+              </div>
+              <Slider
+                min={10}
+                max={100}
+                step={1}
+                value={[quality]}
+                onValueChange={([v]) => setQuality(v)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {quality >= 90 ? "Alta calidad · archivo más pesado" : quality >= 70 ? "Buen balance calidad/peso" : "Compresión alta · puede verse artefactos"}
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter className="gap-2">
           {existing && (
