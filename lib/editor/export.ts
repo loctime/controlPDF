@@ -310,8 +310,6 @@ async function applyOcr(
         }
       }
       
-      toast.info(`OCR Stats: ${blocks.length} bloques, ${wordCount} palabras. isReconstruct: ${isReconstruct}`)
-
       if (!isReconstruct) {
         const image = await ctx.doc.embedPng(imageBytes)
         newPage.drawImage(image, {

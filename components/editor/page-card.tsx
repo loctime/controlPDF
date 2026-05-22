@@ -221,6 +221,9 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
   )
   const isSelected = useEditorStore((s) => s.selection.pageIds.has(pageId))
   const selectionCount = useEditorStore((s) => s.selection.pageIds.size)
+  const groupName = useEditorStore((s) =>
+    entry?.groupId ? (s.groups[entry.groupId]?.name ?? "Grupo") : null
+  )
   const { rotatePage, deletePage, restorePage, duplicatePage, selectPage, createGroupFromSelection } =
     useEditorStore(
       useShallow((s) => ({
@@ -286,6 +289,33 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
       }),
       {
         loading: `Exportando ${selectedPages.length} página${selectedPages.length !== 1 ? "s" : ""}…`,
+        success: "Descarga lista",
+        error: "Error al exportar",
+      },
+    )
+  }
+
+  const handleDownloadGroup = () => {
+    const state = useEditorStore.getState()
+    const gid = entry?.groupId
+    if (!gid) return
+    const groupPages = state.pages.filter((p) => p.groupId === gid && !p.deleted)
+    if (groupPages.length === 0) return
+    const name = state.groups[gid]?.name ?? "grupo"
+    const outName = `${name}.pdf`
+    const tempState = {
+      ...state,
+      pages: groupPages,
+      groups: {},
+      groupOrder: [],
+      selection: { pageIds: new Set<PageId>(), anchorId: null },
+    }
+    toast.promise(
+      exportEditor(tempState).then((result) => {
+        downloadBytes(result.pdfs[0].bytes, outName)
+      }),
+      {
+        loading: `Exportando grupo "${name}"…`,
         success: "Descarga lista",
         error: "Error al exportar",
       },
@@ -369,9 +399,15 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
           {content}
         </ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuItem onClick={() => createGroupFromSelection()}>
-            Crear grupo
-          </ContextMenuItem>
+          {groupName !== null ? (
+            <ContextMenuItem onClick={handleDownloadGroup}>
+              Descargar grupo "{groupName}"
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem onClick={() => createGroupFromSelection()}>
+              Crear grupo
+            </ContextMenuItem>
+          )}
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => setPreviewOpen(true)}>
             Ver página

@@ -11,6 +11,7 @@ import {
   DragOverlay,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core"
 import {
   SortableContext,
@@ -69,6 +70,21 @@ export function PageGrid({ onAddFiles }: PageGridProps) {
   const reorderPages = useEditorStore((s) => s.reorderPages)
   const [signingPageId, setSigningPageId] = useState<PageId | null>(null)
   const [activeId, setActiveId] = useState<PageId | null>(null)
+  const [overId, setOverId] = useState<PageId | null>(null)
+
+  const pageGroupMap = useMemo(() => {
+    const map = new Map<PageId, GroupId | null>()
+    layout.pages.forEach((p) => map.set(p.id, p.groupId))
+    return map
+  }, [layout.pages])
+
+  const activeGroupId = activeId ? (pageGroupMap.get(activeId) ?? null) : null
+  const overGroupId = overId ? (pageGroupMap.get(overId) ?? null) : null
+  // group being entered from outside (activeId not in that group)
+  const enteringGroupId =
+    activeId && overId && overGroupId !== null && overGroupId !== activeGroupId
+      ? overGroupId
+      : null
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -77,10 +93,16 @@ export function PageGrid({ onAddFiles }: PageGridProps) {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id) as PageId)
+    setOverId(null)
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over ? String(event.over.id) as PageId : null)
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null)
+    setOverId(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
     reorderPages(String(active.id), String(over.id))
@@ -88,6 +110,7 @@ export function PageGrid({ onAddFiles }: PageGridProps) {
 
   const handleDragCancel = () => {
     setActiveId(null)
+    setOverId(null)
   }
 
   const pageIds: PageId[] = layout.pages.map((p) => p.id)
@@ -117,6 +140,7 @@ export function PageGrid({ onAddFiles }: PageGridProps) {
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
@@ -132,14 +156,32 @@ export function PageGrid({ onAddFiles }: PageGridProps) {
                   </div>
                 )
               }
+              const isEntering = enteringGroupId === block.groupId
               return (
-                <div key={`group-${block.groupId}-${i}`} className="relative flex flex-wrap gap-3 border-[3px] border-blue-500 rounded-xl p-3 pt-8 bg-blue-500/5 min-w-[220px]">
+                <div
+                  key={`group-${block.groupId}-${i}`}
+                  className={cn(
+                    "relative flex flex-wrap gap-3 rounded-xl p-3 pt-8 min-w-[220px] transition-colors duration-150",
+                    isEntering
+                      ? "border-[3px] border-blue-400 bg-blue-400/10 ring-2 ring-blue-300/30"
+                      : "border-[3px] border-blue-500 bg-blue-500/5",
+                  )}
+                >
                   <div className="absolute top-0 left-0 -mt-[3px] -ml-[3px] bg-blue-500 text-white px-3 py-0.5 rounded-br-lg rounded-tl-lg font-semibold text-xs shadow-sm">
                     {groups[block.groupId as GroupId]?.name || "Grupo"}
                   </div>
                   {block.pages.map(id => (
                     <PageCard key={id} pageId={id} onSign={setSigningPageId} />
                   ))}
+                  {isEntering && (
+                    <div
+                      style={{ width: THUMB_WIDTH, flexShrink: 0 }}
+                      className="rounded-lg border-2 border-dashed border-blue-400 bg-blue-400/10"
+                    >
+                      <div style={{ aspectRatio: "210 / 297" }} />
+                      <div className="py-1" />
+                    </div>
+                  )}
                 </div>
               )
             })}

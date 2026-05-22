@@ -10,7 +10,13 @@ Editor de PDF visual que corre **100% en el navegador**. Sin login, sin subir ar
 - **Selección múltiple** — Shift+click (rango), Ctrl/Cmd+click (individual), Ctrl+A (todo).
 - **Vista previa** — abrí cualquier página ampliada con zoom (rueda), pan (arrastre) y botones +/−.
 - **Agregar archivos** — botón "+", arrastrar sobre la pantalla, o Ctrl+O. Acepta PDF e imágenes.
-- **Descargar seleccionadas** — descargá solo las páginas seleccionadas desde el menú contextual.
+
+### Menú contextual (click derecho)
+- **Crear grupo** — agrupa las páginas seleccionadas (aparece cuando la página no está en ningún grupo).
+- **Descargar grupo** — exporta todas las páginas del grupo como PDF (aparece cuando la página está en un grupo).
+- **Ver página** — abre la vista previa ampliada.
+- **Descargar seleccionadas** — descargá solo las páginas seleccionadas como PDF.
+- **Descargar con OCR (Capa Oculta)** — extrae texto de la página vía OCR y lo embebe en el PDF.
 
 ### Operaciones globales
 - 💧 **Marca de agua** — texto, posición, color, opacidad y rotación configurables, por rango de páginas.
@@ -26,7 +32,6 @@ Editor de PDF visual que corre **100% en el navegador**. Sin login, sin subir ar
 - **Duplicar** — copia la página en el lugar.
 - **Eliminar / restaurar** — las páginas eliminadas se muestran tachadas y se pueden restaurar.
 - **Firmar** — dibujá, subí imagen o tipeá una firma; arrastrala sobre la página.
-- **Descargar con OCR** — extrae texto de una sola página vía menú contextual.
 
 ### Escanear
 - Capturá documentos físicos con la cámara y agregalos al editor como páginas.
