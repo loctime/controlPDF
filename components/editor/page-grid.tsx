@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState, useMemo } from "react"
+import { Fragment, useState, useMemo, useRef, useEffect } from "react"
 import {
   DndContext,
   PointerSensor,
@@ -26,6 +26,53 @@ import type { GroupId, PageId } from "@/lib/editor/types"
 import { cn } from "@/lib/utils"
 
 const THUMB_WIDTH = 200
+
+function GroupBadge({ groupId, name }: { groupId: GroupId; name: string }) {
+  const renameGroup = useEditorStore((s) => s.renameGroup)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(name)
+      requestAnimationFrame(() => inputRef.current?.select())
+    }
+  }, [editing, name])
+
+  const commit = () => {
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== name) renameGroup(groupId, trimmed)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit()
+          if (e.key === "Escape") setEditing(false)
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute top-0 left-0 -mt-[3px] -ml-[3px] bg-blue-500 text-white px-3 py-0.5 rounded-br-lg rounded-tl-lg font-semibold text-xs shadow-sm outline-none w-36 min-w-0"
+      />
+    )
+  }
+
+  return (
+    <div
+      className="absolute top-0 left-0 -mt-[3px] -ml-[3px] bg-blue-500 text-white px-3 py-0.5 rounded-br-lg rounded-tl-lg font-semibold text-xs shadow-sm cursor-text select-none"
+      onDoubleClick={(e) => { e.stopPropagation(); setEditing(true) }}
+      title="Doble click para renombrar"
+    >
+      {name}
+    </div>
+  )
+}
 
 function AddPageCard({ onClick }: { onClick: () => void }) {
   return (
@@ -167,9 +214,10 @@ export function PageGrid({ onAddFiles }: PageGridProps) {
                       : "border-[3px] border-blue-500 bg-blue-500/5",
                   )}
                 >
-                  <div className="absolute top-0 left-0 -mt-[3px] -ml-[3px] bg-blue-500 text-white px-3 py-0.5 rounded-br-lg rounded-tl-lg font-semibold text-xs shadow-sm">
-                    {groups[block.groupId as GroupId]?.name || "Grupo"}
-                  </div>
+                  <GroupBadge
+                    groupId={block.groupId as GroupId}
+                    name={groups[block.groupId as GroupId]?.name || "Grupo"}
+                  />
                   {block.pages.map(id => (
                     <PageCard key={id} pageId={id} onSign={setSigningPageId} />
                   ))}

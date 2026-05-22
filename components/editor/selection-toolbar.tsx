@@ -49,6 +49,13 @@ export function SelectionToolbar() {
     })),
   )
 
+  const anyInGroup = useEditorStore((s) =>
+    [...s.selection.pageIds].some((id) => {
+      const p = s.pages.find((p) => p.id === id)
+      return p?.groupId !== null && p?.groupId !== undefined
+    })
+  )
+
   if (count === 0) return null
 
   const handleDuplicate = () => {
@@ -151,21 +158,23 @@ export function SelectionToolbar() {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={ungroupSelection}
-            aria-label="Quitar de grupo"
-          >
-            <FolderMinus className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Quitar páginas del grupo actual</p>
-        </TooltipContent>
-      </Tooltip>
+      {anyInGroup && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={ungroupSelection}
+              aria-label="Quitar de grupo"
+            >
+              <FolderMinus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Quitar páginas del grupo actual</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
       <div className="h-5 w-px bg-border mx-1" />
       <Tooltip>
         <TooltipTrigger asChild>

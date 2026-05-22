@@ -224,7 +224,7 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
   const groupName = useEditorStore((s) =>
     entry?.groupId ? (s.groups[entry.groupId]?.name ?? "Grupo") : null
   )
-  const { rotatePage, deletePage, restorePage, duplicatePage, selectPage, createGroupFromSelection } =
+  const { rotatePage, deletePage, restorePage, duplicatePage, selectPage, createGroupFromSelection, deleteGroup } =
     useEditorStore(
       useShallow((s) => ({
         rotatePage: s.rotatePage,
@@ -233,6 +233,7 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
         duplicatePage: s.duplicatePage,
         selectPage: s.selectPage,
         createGroupFromSelection: s.createGroupFromSelection,
+        deleteGroup: s.deleteGroup,
       })),
     )
 
@@ -400,9 +401,17 @@ export function PageCard({ pageId, onSign, isOverlay }: PageCardProps) {
         </ContextMenuTrigger>
         <ContextMenuContent>
           {groupName !== null ? (
-            <ContextMenuItem onClick={handleDownloadGroup}>
-              Descargar grupo "{groupName}"
-            </ContextMenuItem>
+            <>
+              <ContextMenuItem onClick={handleDownloadGroup}>
+                Descargar grupo "{groupName}"
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => entry?.groupId && deleteGroup(entry.groupId)}
+                className="text-destructive focus:text-destructive"
+              >
+                Disolver grupo
+              </ContextMenuItem>
+            </>
           ) : (
             <ContextMenuItem onClick={() => createGroupFromSelection()}>
               Crear grupo

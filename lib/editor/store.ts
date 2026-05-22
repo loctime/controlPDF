@@ -1,6 +1,7 @@
 "use client"
 
 import { create } from "zustand"
+import { toast } from "sonner"
 import { getPageCount, releaseDocument } from "@/lib/pdf"
 import type {
   EditorState,
@@ -156,11 +157,13 @@ export const useEditorStore = create<Store>((set, get) => {
           .catch(() => {
             const cur = get()
             if (!cur.sources[sid]) return
+            const fileName = cur.sources[sid].fileName
             const sources = {
               ...cur.sources,
               [sid]: { ...cur.sources[sid], pageCount: 0, error: "PDF inválido" },
             }
             set({ sources })
+            toast.error(`No se pudo cargar "${fileName}"`, { description: "El archivo no es un PDF válido o está dañado." })
           })
       })
     },
@@ -342,7 +345,12 @@ export const useEditorStore = create<Store>((set, get) => {
       if (s.selection.pageIds.size === 0) return null
       pushHistory()
       const gid = newId()
-      const groupName = name ?? `Documento ${s.groupOrder.length + 1}`
+      const selPages = s.pages.filter((p) => s.selection.pageIds.has(p.id))
+      const sourceIds = new Set(selPages.map((p) => p.sourceId))
+      const autoName = sourceIds.size === 1
+        ? (s.sources[selPages[0].sourceId]?.fileName ?? "").replace(/\.[^.]+$/, "") || `Documento ${s.groupOrder.length + 1}`
+        : `Documento ${s.groupOrder.length + 1}`
+      const groupName = name ?? autoName
       const groups = { ...s.groups, [gid]: { id: gid, name: groupName } }
       const groupOrder = [...s.groupOrder, gid]
       const sel = s.selection.pageIds
