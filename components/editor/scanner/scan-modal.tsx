@@ -50,6 +50,36 @@ interface Preview {
 
 const JPEG_QUALITY = 0.9
 
+/**
+ * Tope del lado largo del bitmap decodificado. Sin esto, una foto de 12-48 MP
+ * hace que el worker maneje un `ImageData` y un `cv.Mat` de decenas o cientos
+ * de MB (`getImageData`/`matFromImageData` a resolución completa) — riesgo
+ * real de quedarse sin memoria en el celular. La salida ya está topeada a
+ * 3000px (`MAX_OUTPUT_SIDE` en warp.ts), así que topear la entrada acá no se
+ * nota en la calidad final.
+ */
+const MAX_INPUT_SIDE = 4000
+
+/**
+ * Decodifica el archivo una sola vez y lo reduce si excede `MAX_INPUT_SIDE`.
+ * Esta es la única fuente de verdad del tamaño con el que trabajan la
+ * detección, el editor de esquinas y el warp: todos comparten este mismo
+ * espacio de coordenadas porque todos parten de un bitmap decodificado con
+ * esta misma función.
+ */
+async function decodeCapped(file: File): Promise<ImageBitmap> {
+  const raw = await createImageBitmap(file)
+  const scale = Math.min(1, MAX_INPUT_SIDE / Math.max(raw.width, raw.height))
+  if (scale >= 1) return raw
+  const resized = await createImageBitmap(raw, {
+    resizeWidth: Math.round(raw.width * scale),
+    resizeHeight: Math.round(raw.height * scale),
+    resizeQuality: "high",
+  })
+  raw.close()
+  return resized
+}
+
 async function bitmapToBlob(bitmap: ImageBitmap, quality: number): Promise<Blob> {
   const canvas = document.createElement("canvas")
   canvas.width = bitmap.width
@@ -109,6 +139,8 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
   const [mode, setMode] = useState<ScanMode>("document")
   /** true si OpenCV no está disponible: habilita guardar la foto sin procesar. */
   const [degraded, setDegraded] = useState(false)
+  /** true mientras `restyle()` está en vuelo: bloquea aceptar la página. */
+  const [restyling, setRestyling] = useState(false)
 
   const getClient = useCallback(() => {
     if (!clientRef.current) clientRef.current = new ScannerClient()
@@ -118,6 +150,19 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
   useEffect(() => {
     openRef.current = open
   }, [open])
+
+  // Red de seguridad al desmontar: con el modal montado una sola vez (ver
+  // pdf-editor.tsx) esto no debería dispararse en el camino principal, pero
+  // si en el futuro alguien vuelve a montarlo condicionalmente, el worker no
+  // queda vivo indefinidamente. El efecto de `[open]` ya revoca las URLs de
+  // objeto al cerrar, así que acá alcanza con terminar el cliente.
+  useEffect(
+    () => () => {
+      clientRef.current?.terminate()
+      clientRef.current = null
+    },
+    [],
+  )
 
   // Liberar recursos al cerrar.
   useEffect(() => {
@@ -164,14 +209,34 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
     async (file: File) => {
       setState("detecting")
 
-      let width: number
-      let height: number
+      // Un solo decode del archivo (ver decodeCapped): antes se decodificaba
+      // acá para medir dimensiones y de nuevo para detectar. Ancho y alto
+      // salen de este mismo bitmap, que además ya viene topeado a
+      // MAX_INPUT_SIDE.
+      let bitmap: ImageBitmap
       try {
-        const probe = await createImageBitmap(file)
-        width = probe.width
-        height = probe.height
-        probe.close()
+        bitmap = await decodeCapped(file)
       } catch {
+        if (openRef.current) {
+          toast.error("No se pudo leer la foto. Probá sacarla de nuevo.")
+          setState("idle")
+        }
+        return
+      }
+
+      const width = bitmap.width
+      const height = bitmap.height
+
+      // Miniatura para el editor de esquinas. Se genera antes de transferir
+      // el bitmap al worker: la transferencia lo deja inutilizable. Queda en
+      // el mismo espacio de coordenadas que `width`/`height` porque sale del
+      // mismo bitmap.
+      let displayUrl: string
+      try {
+        const displayBlob = await bitmapToBlob(bitmap, JPEG_QUALITY)
+        displayUrl = URL.createObjectURL(displayBlob)
+      } catch {
+        bitmap.close()
         if (openRef.current) {
           toast.error("No se pudo leer la foto. Probá sacarla de nuevo.")
           setState("idle")
@@ -182,7 +247,7 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
       // La detección es best-effort: si falla, el usuario ajusta a mano.
       let corners = defaultCorners(width, height)
       try {
-        const detected = await getClient().detect(await createImageBitmap(file))
+        const detected = await getClient().detect(bitmap)
         if (detected) corners = detected
         else if (openRef.current) toast.info("No encontré los bordes. Ajustalos vos.")
       } catch {
@@ -193,8 +258,11 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
       }
 
       // El modal pudo cerrarse mientras la detección estaba en curso.
-      if (!openRef.current) return
-      setCapture({ file, url: URL.createObjectURL(file), corners })
+      if (!openRef.current) {
+        URL.revokeObjectURL(displayUrl)
+        return
+      }
+      setCapture({ file, url: displayUrl, corners })
       setState("adjusting")
     },
     [getClient],
@@ -203,19 +271,33 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
   const confirmCorners = useCallback(async () => {
     if (!capture) return
     setState("warping")
+    let result: ImageBitmap | null = null
     try {
-      const bitmap = await createImageBitmap(capture.file)
-      const result = await getClient().warp(bitmap, capture.corners, mode)
+      // Mismo decode topeado que en handleFile: capture.corners está en ese
+      // espacio de coordenadas, no en el de capture.file a resolución
+      // completa.
+      const bitmap = await decodeCapped(capture.file)
+      result = await getClient().warp(bitmap, capture.corners, mode)
       const blob = await bitmapToBlob(result, JPEG_QUALITY)
-      result.close()
       if (!openRef.current) return
-      setPreview({ url: URL.createObjectURL(blob), blob })
+      setPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url)
+        return { url: URL.createObjectURL(blob), blob }
+      })
       setState("previewing")
+      // Un warp exitoso confirma que OpenCV está andando: la salida de
+      // emergencia de "guardar sin enderezar" ya no hace falta.
+      setDegraded(false)
     } catch (err) {
       if (!openRef.current) return
       setDegraded(true)
       toast.error(err instanceof Error ? err.message : "No se pudo procesar la página")
       setState("adjusting")
+    } finally {
+      // `bitmapToBlob` puede tirar (canvas sin contexto, toBlob devolviendo
+      // null bajo presión de memoria) antes de llegar al close() original:
+      // acá corre siempre.
+      result?.close()
     }
   }, [capture, mode, getClient])
 
@@ -228,10 +310,11 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
       }
       const previous = mode
       setMode(next)
+      setRestyling(true)
+      let result: ImageBitmap | null = null
       try {
-        const result = await getClient().restyle(next)
+        result = await getClient().restyle(next)
         const blob = await bitmapToBlob(result, JPEG_QUALITY)
-        result.close()
         if (!openRef.current) return
         setPreview((prev) => {
           if (prev) URL.revokeObjectURL(prev.url)
@@ -243,17 +326,22 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
         // apuntando a un modo que no es el de la imagen visible.
         setMode(previous)
         toast.error("No se pudo cambiar el modo")
+      } finally {
+        result?.close()
+        setRestyling(false)
       }
     },
     [state, mode, getClient],
   )
 
   const acceptPage = useCallback(async () => {
-    if (!preview) return
+    // Con un restyle en vuelo, preview.blob todavía es el de mode anterior:
+    // aceptar acá guardaría un modo distinto al que el toggle muestra.
+    if (!preview || restyling) return
     await addPage(preview.blob)
     getClient().release()
     resetToIdle()
-  }, [preview, addPage, getClient, resetToIdle])
+  }, [preview, restyling, addPage, getClient, resetToIdle])
 
   /** Salida de emergencia cuando OpenCV no está disponible. */
   const saveUnprocessed = useCallback(async () => {
@@ -378,12 +466,12 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
                 alt="Página procesada"
                 className="w-full h-auto rounded-lg"
               />
-              <ModeToggle value={mode} onChange={changeMode} />
+              <ModeToggle value={mode} onChange={changeMode} disabled={restyling} />
               <div className="flex gap-2">
                 <Button variant="outline" onClick={backToCorners} className="flex-1">
                   Volver a las esquinas
                 </Button>
-                <Button onClick={acceptPage} className="flex-1">
+                <Button onClick={acceptPage} disabled={restyling} className="flex-1">
                   <Check className="h-4 w-4 mr-1" />
                   Usar esta página
                 </Button>

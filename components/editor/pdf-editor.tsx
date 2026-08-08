@@ -135,53 +135,50 @@ export function PdfEditor() {
     return () => window.removeEventListener("keydown", handler)
   }, [pageCount, isMac, selectAll, clearSelection, clearAll])
 
-  if (pageCount === 0) {
-    return (
-      <>
+  return (
+    <>
+      {pageCount === 0 ? (
         <EmptyState
           onFilesAdded={handleFilesAdded}
           inputRef={fileInputRef}
           maxSizeMb={MAX_FILE_SIZE_MB}
           onScan={() => setScanOpen(true)}
         />
-        <ScanModal open={scanOpen} onOpenChange={setScanOpen} />
-      </>
-    )
-  }
-
-  return (
-    <div className="relative space-y-4">
-      {isDragOver && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-primary/5 px-16 py-12">
-            <Upload className="h-12 w-12 text-primary" />
-            <p className="text-lg font-medium text-foreground">Soltá para agregar</p>
-            <p className="text-sm text-muted-foreground">PDF o imágenes</p>
-          </div>
+      ) : (
+        <div className="relative space-y-4">
+          {isDragOver && (
+            <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm">
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-primary/5 px-16 py-12">
+                <Upload className="h-12 w-12 text-primary" />
+                <p className="text-lg font-medium text-foreground">Soltá para agregar</p>
+                <p className="text-sm text-muted-foreground">PDF o imágenes</p>
+              </div>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf,image/png,image/jpeg,image/jpg"
+            multiple
+            onChange={(e) => {
+              const picked = e.target.files ? Array.from(e.target.files) : []
+              if (picked.length > 0) handleFilesAdded(picked)
+              e.target.value = ""
+            }}
+            className="sr-only"
+            aria-label="Seleccionar archivos PDF"
+          />
+          <EditorToolbar
+            isMac={isMac}
+            onAddFiles={() => fileInputRef.current?.click()}
+            onClearAll={clearAll}
+            onScan={() => setScanOpen(true)}
+          />
+          <PageGrid onAddFiles={() => fileInputRef.current?.click()} />
+          <SelectionToolbar />
         </div>
       )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/pdf,.pdf,image/png,image/jpeg,image/jpg"
-        multiple
-        onChange={(e) => {
-          const picked = e.target.files ? Array.from(e.target.files) : []
-          if (picked.length > 0) handleFilesAdded(picked)
-          e.target.value = ""
-        }}
-        className="sr-only"
-        aria-label="Seleccionar archivos PDF"
-      />
-      <EditorToolbar
-        isMac={isMac}
-        onAddFiles={() => fileInputRef.current?.click()}
-        onClearAll={clearAll}
-        onScan={() => setScanOpen(true)}
-      />
       <ScanModal open={scanOpen} onOpenChange={setScanOpen} />
-      <PageGrid onAddFiles={() => fileInputRef.current?.click()} />
-      <SelectionToolbar />
-    </div>
+    </>
   )
 }

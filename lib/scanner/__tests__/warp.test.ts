@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { warpToRect } from "../warp"
 import { makeDocumentPhoto } from "./fixtures"
+import type { Corners } from "../types"
 
 describe("warpToRect", () => {
   it("produce una imagen con las dimensiones del documento, no de la foto", async () => {
@@ -44,5 +45,16 @@ describe("warpToRect", () => {
     const out = await warpToRect(image, corners)
     expect(out.data.length).toBe(out.width * out.height * 4)
     expect(out.data[3]).toBe(255)
+  })
+
+  it("tira un error claro si las esquinas están todas juntas (cuadrilátero degenerado)", async () => {
+    const { image } = makeDocumentPhoto()
+    const degenerate: Corners = [
+      { x: 600, y: 450 },
+      { x: 601, y: 450 },
+      { x: 601, y: 451 },
+      { x: 600, y: 451 },
+    ]
+    await expect(warpToRect(image, degenerate)).rejects.toThrow(/esquinas/i)
   })
 })

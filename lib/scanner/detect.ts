@@ -38,15 +38,22 @@ export function defaultCorners(width: number, height: number): Corners {
 export async function detectCorners(img: RawImage): Promise<Corners | null> {
   const cv = await loadCv()
 
-  const src = cv.matFromImageData(img)
-  const small = new cv.Mat()
-  const gray = new cv.Mat()
-  const edges = new cv.Mat()
-  const contours = new cv.MatVector()
-  const hierarchy = new cv.Mat()
+  let src: any = null
+  let small: any = null
+  let gray: any = null
+  let edges: any = null
+  let contours: any = null
+  let hierarchy: any = null
   let kernel: any = null
 
   try {
+    src = cv.matFromImageData(img)
+    small = new cv.Mat()
+    gray = new cv.Mat()
+    edges = new cv.Mat()
+    contours = new cv.MatVector()
+    hierarchy = new cv.Mat()
+
     const scale = Math.min(1, DETECT_MAX_SIDE / Math.max(img.width, img.height))
     const w = Math.round(img.width * scale)
     const h = Math.round(img.height * scale)
@@ -97,12 +104,12 @@ export async function detectCorners(img: RawImage): Promise<Corners | null> {
     }))
     return orderCorners(full)
   } finally {
-    src.delete()
-    small.delete()
-    gray.delete()
-    edges.delete()
-    contours.delete()
-    hierarchy.delete()
+    src?.delete()
+    small?.delete()
+    gray?.delete()
+    edges?.delete()
+    contours?.delete()
+    hierarchy?.delete()
     kernel?.delete()
   }
 }
