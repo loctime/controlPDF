@@ -205,6 +205,53 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
     setState("idle")
   }, [])
 
+  /**
+   * Endereza y mejora una captura. Tiene dos disparadores: automático cuando
+   * la detección acertó, y manual desde "Continuar" en la pantalla de ajuste.
+   * Recibe la captura por parámetro en vez de leerla del estado porque el
+   * camino automático la invoca en el mismo tick en que la setea.
+   */
+  const runWarp = useCallback(
+    async (cap: Capture) => {
+      setState("warping")
+      let result: ImageBitmap | null = null
+      try {
+        // Mismo decode topeado que en handleFile: cap.corners está en ese
+        // espacio de coordenadas, no en el de cap.file a resolución completa.
+        const bitmap = await decodeCapped(cap.file)
+        result = await getClient().warp(bitmap, cap.corners, mode)
+        const blob = await bitmapToBlob(result, JPEG_QUALITY)
+        if (!openRef.current) return
+        setPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev.url)
+          return { url: URL.createObjectURL(blob), blob }
+        })
+        setState("previewing")
+        // Un warp exitoso confirma que OpenCV está andando: la salida de
+        // emergencia de "guardar sin enderezar" ya no hace falta.
+        setDegraded(false)
+      } catch (err) {
+        if (!openRef.current) return
+        setDegraded(true)
+        toast.error(err instanceof Error ? err.message : "No se pudo procesar la página")
+        // Cae a la pantalla de ajuste aunque viniera del camino automático:
+        // ahí el usuario puede corregir las esquinas y reintentar.
+        setState("adjusting")
+      } finally {
+        // `bitmapToBlob` puede tirar (canvas sin contexto, toBlob devolviendo
+        // null bajo presión de memoria) antes de llegar al close() original:
+        // acá corre siempre.
+        result?.close()
+      }
+    },
+    [mode, getClient],
+  )
+
+  const confirmCorners = useCallback(() => {
+    if (!capture) return
+    void runWarp(capture)
+  }, [capture, runWarp])
+
   const handleFile = useCallback(
     async (file: File) => {
       setState("detecting")
@@ -246,10 +293,15 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
 
       // La detección es best-effort: si falla, el usuario ajusta a mano.
       let corners = defaultCorners(width, height)
+      let detectedOk = false
       try {
         const detected = await getClient().detect(bitmap)
-        if (detected) corners = detected
-        else if (openRef.current) toast.info("No encontré los bordes. Ajustalos vos.")
+        if (detected) {
+          corners = detected
+          detectedOk = true
+        } else if (openRef.current) {
+          toast.info("No encontré los bordes. Ajustalos vos.")
+        }
       } catch {
         if (openRef.current) {
           setDegraded(true)
@@ -262,44 +314,19 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
         URL.revokeObjectURL(displayUrl)
         return
       }
-      setCapture({ file, url: displayUrl, corners })
-      setState("adjusting")
-    },
-    [getClient],
-  )
+      const cap: Capture = { file, url: displayUrl, corners }
+      setCapture(cap)
 
-  const confirmCorners = useCallback(async () => {
-    if (!capture) return
-    setState("warping")
-    let result: ImageBitmap | null = null
-    try {
-      // Mismo decode topeado que en handleFile: capture.corners está en ese
-      // espacio de coordenadas, no en el de capture.file a resolución
-      // completa.
-      const bitmap = await decodeCapped(capture.file)
-      result = await getClient().warp(bitmap, capture.corners, mode)
-      const blob = await bitmapToBlob(result, JPEG_QUALITY)
-      if (!openRef.current) return
-      setPreview((prev) => {
-        if (prev) URL.revokeObjectURL(prev.url)
-        return { url: URL.createObjectURL(blob), blob }
-      })
-      setState("previewing")
-      // Un warp exitoso confirma que OpenCV está andando: la salida de
-      // emergencia de "guardar sin enderezar" ya no hace falta.
-      setDegraded(false)
-    } catch (err) {
-      if (!openRef.current) return
-      setDegraded(true)
-      toast.error(err instanceof Error ? err.message : "No se pudo procesar la página")
-      setState("adjusting")
-    } finally {
-      // `bitmapToBlob` puede tirar (canvas sin contexto, toBlob devolviendo
-      // null bajo presión de memoria) antes de llegar al close() original:
-      // acá corre siempre.
-      result?.close()
-    }
-  }, [capture, mode, getClient])
+      if (detectedOk) {
+        // La detección acertó: no hay nada que confirmar, se endereza directo.
+        // Si se equivocó, el usuario corrige desde el resultado.
+        await runWarp(cap)
+      } else {
+        setState("adjusting")
+      }
+    },
+    [getClient, runWarp],
+  )
 
   /** Cambia el modo re-aplicando la mejora sobre el enderezado ya cacheado. */
   const changeMode = useCallback(
@@ -334,14 +361,28 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
     [state, mode, getClient],
   )
 
-  const acceptPage = useCallback(async () => {
+  const savePage = useCallback(async (): Promise<boolean> => {
     // Con un restyle en vuelo, preview.blob todavía es el de mode anterior:
     // aceptar acá guardaría un modo distinto al que el toggle muestra.
-    if (!preview || restyling) return
+    if (!preview || restyling) return false
     await addPage(preview.blob)
     getClient().release()
     resetToIdle()
+    return true
   }, [preview, restyling, addPage, getClient, resetToIdle])
+
+  /**
+   * Guarda la página y vuelve a abrir la cámara, para encadenar hojas con un
+   * solo toque. Los navegadores solo permiten abrir el selector de archivos
+   * si proviene de una activación reciente del usuario, y guardar mete un
+   * await en el medio. Si el navegador lo rechaza quedamos en `idle`, donde
+   * el botón "Agregar otra página" está a mano: se pierde el atajo, nunca la
+   * página.
+   */
+  const saveAndCaptureAgain = useCallback(async () => {
+    if (!(await savePage())) return
+    fileInputRef.current?.click()
+  }, [savePage])
 
   /** Salida de emergencia cuando OpenCV no está disponible. */
   const saveUnprocessed = useCallback(async () => {
@@ -467,13 +508,26 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
                 className="w-full h-auto rounded-lg"
               />
               <ModeToggle value={mode} onChange={changeMode} disabled={restyling} />
+              <Button
+                onClick={saveAndCaptureAgain}
+                disabled={restyling}
+                className="w-full"
+              >
+                <Camera className="h-4 w-4 mr-1" />
+                Guardar y tomar otra
+              </Button>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={backToCorners} className="flex-1">
-                  Volver a las esquinas
+                  Ajustar esquinas
                 </Button>
-                <Button onClick={acceptPage} disabled={restyling} className="flex-1">
+                <Button
+                  variant="outline"
+                  onClick={savePage}
+                  disabled={restyling}
+                  className="flex-1"
+                >
                   <Check className="h-4 w-4 mr-1" />
-                  Usar esta página
+                  Guardar
                 </Button>
               </div>
             </div>
