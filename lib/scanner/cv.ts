@@ -12,8 +12,11 @@ export function cvStatus(): CvStatus {
 }
 
 /**
- * Carga OpenCV una sola vez. Las llamadas concurrentes comparten la misma
- * promesa. Si falla, la próxima llamada reintenta desde cero.
+ * Carga OpenCV una sola vez. Las llamadas concurrentes comparten la promesa.
+ * Si falla, cvStatus() pasa a "failed" y las llamadas posteriores rechazan
+ * con el mismo error, porque el módulo exporta una Promise singleton.
+ * El reintento real se logra descartando el worker completo y creando uno nuevo
+ * (lo maneja ScannerClient en la Tarea 6).
  */
 export function loadCv(): Promise<CV> {
   if (pending) return pending
