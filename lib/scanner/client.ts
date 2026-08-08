@@ -29,7 +29,9 @@ export class ScannerClient {
 
   private ensureWorker(): Worker {
     if (this.worker) return this.worker
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" })
+    // Clásico, no módulo: es lo único que habilita `importScripts` dentro del
+    // worker (plan B para cargar OpenCV sin que el bundler lo toque).
+    const worker = new Worker(new URL("./worker.ts", import.meta.url))
     worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
       const msg = event.data
       const entry = this.pending.get(msg.id)

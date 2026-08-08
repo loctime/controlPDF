@@ -5,8 +5,8 @@
   "scripts": {
     "prebuild": "node scripts/copy-opencv.js",
     "predev": "node scripts/copy-opencv.js",
-    "build": "next build",
-    "dev": "next dev",
+    "build": "next build --webpack",
+    "dev": "next dev --webpack",
     "lint": "eslint .",
     "start": "next start",
     "test": "vitest run",
