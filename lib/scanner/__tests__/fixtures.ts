@@ -1,11 +1,4 @@
-export interface RawImage {
-  data: Uint8ClampedArray
-  width: number
-  height: number
-}
-
-export interface Point { x: number; y: number }
-export type Corners = [Point, Point, Point, Point] // tl, tr, br, bl
+import type { RawImage, Point, Corners } from "../types"
 
 interface PhotoOptions {
   width?: number
@@ -81,3 +74,6 @@ export function makeDocumentPhoto(opts: PhotoOptions = {}): {
 
   return { image: { data, width, height }, corners }
 }
+
+export type { RawImage, Corners }
+
