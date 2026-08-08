@@ -1,0 +1,10 @@
+{
+  "01-fondo-oscuro.jpg": { "corners": [[0,0],[0,0],[0,0],[0,0]] },
+  "02-fondo-claro.jpg": { "corners": [[0,0],[0,0],[0,0],[0,0]] },
+  "03-sombra-mano.jpg": { "corners": [[0,0],[0,0],[0,0],[0,0]] },
+  "04-angulo.jpg": { "corners": [[0,0],[0,0],[0,0],[0,0]] },
+  "05-sellos.jpg": { "corners": [[0,0],[0,0],[0,0],[0,0]] },
+  "06-ticket.jpg": { "corners": [[0,0],[0,0],[0,0],[0,0]] },
+  "07-arrugado.jpg": { "corners": [[0,0],[0,0],[0,0],[0,0]] },
+  "08-sin-documento.jpg": { "corners": null }
+}
