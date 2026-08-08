@@ -1,4 +1,4 @@
-import type { Point } from "./types"
+import type { Corners, Point } from "./types"
 
 export interface Size {
   w: number
@@ -43,4 +43,32 @@ export function toImage(
     x: Math.round((sx / rect.width) * natural.w),
     y: Math.round((sy / rect.height) * natural.h),
   }
+}
+
+/**
+ * Dice si el documento detectado se sale del cuadro de la foto, o sea que le
+ * falta lo que la cámara nunca capturó.
+ *
+ * La señal es que alguna esquina caiga FUERA de los límites de la imagen. Eso
+ * pasa cuando la detección no encontró un cuadrilátero fiel y cayó al
+ * rectángulo envolvente, que se extiende más allá del papel visible.
+ *
+ * Una esquina meramente pegada al borde NO sirve como señal: un documento que
+ * llena bien el cuadro las tiene ahí y está perfectamente capturado. Avisar en
+ * ese caso es un falso positivo que manda al usuario a repetir una foto que
+ * estaba bien.
+ */
+export function documentOverflowsFrame(
+  corners: Corners,
+  width: number,
+  height: number,
+): boolean {
+  const tolerance = Math.max(4, Math.round(0.01 * Math.max(width, height)))
+  return corners.some(
+    (p) =>
+      p.x < -tolerance ||
+      p.y < -tolerance ||
+      p.x > width + tolerance ||
+      p.y > height + tolerance,
+  )
 }

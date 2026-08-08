@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { toScreen, toImage } from "../coords"
-import type { Point } from "../types"
+import { toScreen, toImage, documentOverflowsFrame } from "../coords"
+import type { Corners, Point } from "../types"
 
 describe("toScreen / toImage", () => {
   it("ida y vuelta: toImage(toScreen(p)) vuelve a p, para varios tamaños de caja", () => {
@@ -83,5 +83,54 @@ describe("toScreen / toImage", () => {
     expect(toImage(10, 10, { w: 100, h: 100 }, { left: 0, top: 0, width: 0, height: 0 })).toEqual(
       { x: 0, y: 0 },
     )
+  })
+})
+
+describe("documentOverflowsFrame", () => {
+  // Valores reales de las fotos de lib/scanner/__tests__/photos.
+  const FOTO = { w: 1536, h: 2048 }
+
+  it("no avisa cuando el documento entra entero", () => {
+    const corners = [
+      { x: 311, y: 96 },
+      { x: 1472, y: 264 },
+      { x: 1208, y: 1859 },
+      { x: 84, y: 1661 },
+    ] as Corners
+    expect(documentOverflowsFrame(corners, FOTO.w, FOTO.h)).toBe(false)
+  })
+
+  it("no avisa cuando el documento llena el cuadro y toca los bordes", () => {
+    // 02-hoja-toca-borde.jpg: esquinas en x=0 y x=1534 sobre 1536 de ancho.
+    // Está perfectamente capturado; avisar acá seria un falso positivo.
+    const corners = [
+      { x: 0, y: 436 },
+      { x: 938, y: 66 },
+      { x: 1534, y: 1473 },
+      { x: 534, y: 1864 },
+    ] as Corners
+    expect(documentOverflowsFrame(corners, FOTO.w, FOTO.h)).toBe(false)
+  })
+
+  it("avisa cuando el papel se sale por izquierda y arriba", () => {
+    // 03-sale-por-tres-lados.jpg
+    const corners = [
+      { x: -236, y: 385 },
+      { x: 967, y: -154 },
+      { x: 1700, y: 1481 },
+      { x: 500, y: 2019 },
+    ] as Corners
+    expect(documentOverflowsFrame(corners, FOTO.w, FOTO.h)).toBe(true)
+  })
+
+  it("avisa cuando se sale por abajo", () => {
+    // 04-sale-y-pila-de-hojas.jpg
+    const corners = [
+      { x: -76, y: 27 },
+      { x: 1300, y: -80 },
+      { x: 1460, y: 1958 },
+      { x: 84, y: 2066 },
+    ] as Corners
+    expect(documentOverflowsFrame(corners, FOTO.w, FOTO.h)).toBe(true)
   })
 })

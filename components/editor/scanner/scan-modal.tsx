@@ -18,6 +18,7 @@ import { CornerEditor } from "./corner-editor"
 import { ModeToggle } from "./mode-toggle"
 import { ScannerClient } from "@/lib/scanner/client"
 import { defaultCorners } from "@/lib/scanner/detect"
+import { documentOverflowsFrame } from "@/lib/scanner/coords"
 import type { Corners, ScanMode } from "@/lib/scanner/types"
 import { PDFDocument } from "@cantoo/pdf-lib"
 
@@ -84,18 +85,6 @@ async function decodeCapped(file: File): Promise<ImageBitmap> {
   return resized
 }
 
-/**
- * Cuenta cuántas esquinas quedaron pegadas al borde de la foto. Dos o más
- * significan que el documento se sale del cuadro: el recorte va a estar bien
- * pero le va a faltar lo que la cámara nunca capturó.
- */
-function cornersOnFrameEdge(corners: Corners, width: number, height: number): number {
-  const margin = Math.max(2, Math.round(0.01 * Math.max(width, height)))
-  return corners.filter(
-    (p) =>
-      p.x <= margin || p.y <= margin || p.x >= width - margin || p.y >= height - margin,
-  ).length
-}
 
 async function bitmapToBlob(bitmap: ImageBitmap, quality: number): Promise<Blob> {
   const canvas = document.createElement("canvas")
@@ -335,7 +324,7 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
       setCapture(cap)
 
       if (detectedOk) {
-        if (cornersOnFrameEdge(corners, width, height) >= 2) {
+        if (documentOverflowsFrame(corners, width, height)) {
           toast.warning("El documento se sale de la foto. Alejate un poco y sacala de nuevo.")
         }
         // La detección acertó: no hay nada que confirmar, se endereza directo.
