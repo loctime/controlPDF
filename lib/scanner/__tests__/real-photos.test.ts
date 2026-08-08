@@ -8,8 +8,13 @@ import type { Corners, RawImage } from "../types"
 const DIR = join(__dirname, "photos")
 const EXPECTED_PATH = join(DIR, "expected.json")
 
-/** El spec pide acertar al menos 6 de 8 sin intervención manual. */
-const MIN_HITS = 6
+/**
+ * El spec pide acertar al menos 6 de 8 sin intervención manual. Se expresa
+ * como proporción para que el umbral siga teniendo sentido a medida que se
+ * suman fotos: con un número fijo, un expected.json a medio llenar fallaría
+ * de forma confusa o pasaría por acumulación.
+ */
+const HIT_RATIO = 0.75
 
 function decode(file: string): RawImage {
   const raw = jpeg.decode(readFileSync(join(DIR, file)), { useTArray: true })
@@ -34,11 +39,20 @@ describe.skipIf(!hasPhotos)("fotos reales", () => {
     ? JSON.parse(readFileSync(EXPECTED_PATH, "utf8"))
     : {}
 
-  it(`acierta al menos ${MIN_HITS} de 8`, async () => {
+  const entries = Object.entries(expected)
+  const minHits = Math.ceil(entries.length * HIT_RATIO)
+
+  it(`acierta al menos ${minHits} de ${entries.length}`, async () => {
     let hits = 0
     const misses: string[] = []
 
-    for (const [file, entry] of Object.entries(expected)) {
+    for (const [file, entry] of entries) {
+      // Un archivo listado en expected.json que no está en disco cuenta como
+      // fallo con nombre, no como excepción sin contexto.
+      if (!existsSync(join(DIR, file))) {
+        misses.push(`${file}: falta el archivo`)
+        continue
+      }
       const img = decode(file)
       const found = await detectCorners(img)
 
@@ -54,6 +68,6 @@ describe.skipIf(!hasPhotos)("fotos reales", () => {
     }
 
     if (misses.length) console.log("Fallos:\n  " + misses.join("\n  "))
-    expect(hits).toBeGreaterThanOrEqual(MIN_HITS)
+    expect(hits).toBeGreaterThanOrEqual(minHits)
   })
 })
