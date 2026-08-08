@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest"
+import cvReady from "@techstark/opencv-js"
 import { makeDocumentPhoto } from "./fixtures"
-
-const cvReady = require("@techstark/opencv-js")
 
 describe("infraestructura", () => {
   it("carga OpenCV en Node y expone las funciones que usamos", async () => {
