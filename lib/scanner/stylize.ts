@@ -67,15 +67,24 @@ function boostContrast(cv: CV, rgb: any): any {
   const l = new cv.Mat()
   const rebuilt = new cv.MatVector()
   let clahe: any = null
+  // channels.get(i) devuelve un Mat nuevo en cada llamada, independiente del
+  // vector: hay que borrarlo aparte de channels.delete(). Mismo patron que
+  // contours.get(i) en detect.ts.
+  let l0: any = null
+  let a0: any = null
+  let b0: any = null
 
   try {
     cv.cvtColor(rgb, lab, cv.COLOR_RGB2Lab)
     cv.split(lab, channels)
+    l0 = channels.get(0)
+    a0 = channels.get(1)
+    b0 = channels.get(2)
     clahe = new cv.CLAHE(2.0, new cv.Size(8, 8))
-    clahe.apply(channels.get(0), l)
+    clahe.apply(l0, l)
     rebuilt.push_back(l)
-    rebuilt.push_back(channels.get(1))
-    rebuilt.push_back(channels.get(2))
+    rebuilt.push_back(a0)
+    rebuilt.push_back(b0)
     cv.merge(rebuilt, merged)
     cv.cvtColor(merged, out, cv.COLOR_Lab2RGB)
     return out
@@ -89,6 +98,9 @@ function boostContrast(cv: CV, rgb: any): any {
     l.delete()
     rebuilt.delete()
     clahe?.delete()
+    l0?.delete()
+    a0?.delete()
+    b0?.delete()
   }
 }
 
