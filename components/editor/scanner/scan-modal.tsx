@@ -68,7 +68,11 @@ const MAX_INPUT_SIDE = 4000
  * esta misma función.
  */
 async function decodeCapped(file: File): Promise<ImageBitmap> {
-  const raw = await createImageBitmap(file)
+  // `imageOrientation: "from-image"` va explícito a propósito. Las cámaras de
+  // celular suelen guardar la foto en horizontal con una etiqueta EXIF que dice
+  // cómo rotarla, y el default del navegador para respetarla o ignorarla cambió
+  // con los años: en los que todavía la ignoran, la página sale acostada.
+  const raw = await createImageBitmap(file, { imageOrientation: "from-image" })
   const scale = Math.min(1, MAX_INPUT_SIDE / Math.max(raw.width, raw.height))
   if (scale >= 1) return raw
   const resized = await createImageBitmap(raw, {
@@ -78,6 +82,19 @@ async function decodeCapped(file: File): Promise<ImageBitmap> {
   })
   raw.close()
   return resized
+}
+
+/**
+ * Cuenta cuántas esquinas quedaron pegadas al borde de la foto. Dos o más
+ * significan que el documento se sale del cuadro: el recorte va a estar bien
+ * pero le va a faltar lo que la cámara nunca capturó.
+ */
+function cornersOnFrameEdge(corners: Corners, width: number, height: number): number {
+  const margin = Math.max(2, Math.round(0.01 * Math.max(width, height)))
+  return corners.filter(
+    (p) =>
+      p.x <= margin || p.y <= margin || p.x >= width - margin || p.y >= height - margin,
+  ).length
 }
 
 async function bitmapToBlob(bitmap: ImageBitmap, quality: number): Promise<Blob> {
@@ -318,6 +335,9 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
       setCapture(cap)
 
       if (detectedOk) {
+        if (cornersOnFrameEdge(corners, width, height) >= 2) {
+          toast.warning("El documento se sale de la foto. Alejate un poco y sacala de nuevo.")
+        }
         // La detección acertó: no hay nada que confirmar, se endereza directo.
         // Si se equivocó, el usuario corrige desde el resultado.
         await runWarp(cap)

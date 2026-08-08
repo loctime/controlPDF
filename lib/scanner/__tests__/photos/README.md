@@ -49,3 +49,14 @@ tolerancia / encontró un documento donde no hay).
 Si da menos de 6, no tocar las fotos ni las coordenadas: ajustar los
 umbrales de `../../detect.ts` (Canny 50/150, epsilon 0,02, área mínima 0,15)
 contra estas fotos reales, y volver a correr el test.
+
+## Sobre las esquinas esperadas de las fotos 03 y 04
+
+En esas dos el papel se sale del cuadro, así que las esquinas reales del
+documento no existen en la imagen. La detección devuelve el rectángulo
+envolvente, que contiene todo el documento a costa de incluir algo de fondo —
+verificado a ojo sobre la salida enderezada: no falta texto.
+
+Las esquinas anotadas quedan fuera de los límites de la imagen (valores
+negativos y mayores al ancho) a propósito. Sirven como test de regresión: si
+un cambio futuro vuelve a recortar hacia adentro del documento, el test falla.

@@ -16,6 +16,18 @@ const MIN_AREA_RATIO = 0.15
 const APPROX_EPSILONS = [0.01, 0.02, 0.03, 0.04, 0.06, 0.08]
 
 /**
+ * Fracción del contorno que la aproximación tiene que conservar para aceptarse.
+ *
+ * `approxPolyDP` devuelve un polígono *inscripto*: sus vértices son un
+ * subconjunto de los del original, así que puede cortar hacia adentro del
+ * documento. Cuando el papel llega al borde de la foto, la esquina real no
+ * existe en la imagen y una tolerancia gruesa aplana esa zona comiéndose
+ * texto. Medido sobre fotos reales: las que recortaban bien conservaban 96%,
+ * las que cortaban texto 83% y 86%.
+ */
+const MIN_HULL_RETENTION = 0.92
+
+/**
  * Ordena cuatro puntos como arriba-izq, arriba-der, abajo-der, abajo-izq.
  * La suma x+y es mínima en la esquina superior izquierda y máxima en la
  * inferior derecha; la diferencia y-x separa las otras dos.
@@ -52,12 +64,16 @@ function quadFromContour(cv: CV, contour: any): Point[] {
   try {
     cv.convexHull(contour, hull, false, true)
     const peri = cv.arcLength(hull, true)
+    const hullArea = Math.abs(cv.contourArea(hull))
 
     for (const eps of APPROX_EPSILONS) {
       const approx = new cv.Mat()
       try {
         cv.approxPolyDP(hull, approx, eps * peri, true)
         if (approx.rows !== 4) continue
+        // Si la aproximación se comió un pedazo del documento, no sirve:
+        // mejor un rectángulo que sobre fondo a un recorte que corte texto.
+        if (Math.abs(cv.contourArea(approx)) < MIN_HULL_RETENTION * hullArea) continue
         const pts: Point[] = []
         for (let k = 0; k < 4; k++) {
           pts.push({ x: approx.data32S[k * 2], y: approx.data32S[k * 2 + 1] })
