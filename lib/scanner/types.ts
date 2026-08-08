@@ -23,6 +23,7 @@ export type WorkerRequest =
 
 export type WorkerResponse =
   | { id: number; ok: true; op: "detect"; corners: Corners | null }
-  | { id: number; ok: true; op: "warp" | "restyle"; bitmap: ImageBitmap }
+  | { id: number; ok: true; op: "warp"; bitmap: ImageBitmap }
+  | { id: number; ok: true; op: "restyle"; bitmap: ImageBitmap }
   | { id: number; ok: true; op: "release" }
   | { id: number; ok: false; error: string }

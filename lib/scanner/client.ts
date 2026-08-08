@@ -25,13 +25,20 @@ export class ScannerClient {
   private worker: Worker | null = null
   private pending = new Map<number, Pending>()
   private nextId = 1
-  private usedOnce = false
+  /**
+   * Por worker, no por cliente: si el worker muere y `ensureWorker()` crea
+   * uno nuevo, esa próxima llamada es una carga en frío de OpenCV de nuevo
+   * (aunque el cliente ya haya hecho llamadas antes) y necesita el timeout
+   * largo, no el corto.
+   */
+  private workerWarmedUp = false
 
   private ensureWorker(): Worker {
     if (this.worker) return this.worker
     // Clásico, no módulo: es lo único que habilita `importScripts` dentro del
     // worker (plan B para cargar OpenCV sin que el bundler lo toque).
     const worker = new Worker(new URL("./worker.ts", import.meta.url))
+    this.workerWarmedUp = false
     worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
       const msg = event.data
       const entry = this.pending.get(msg.id)
@@ -50,6 +57,7 @@ export class ScannerClient {
       this.pending.clear()
       this.worker?.terminate()
       this.worker = null
+      this.workerWarmedUp = false
     }
     this.worker = worker
     return worker
@@ -58,8 +66,8 @@ export class ScannerClient {
   private send<T>(req: WithoutId<WorkerRequest>, transfer: Transferable[] = []): Promise<T> {
     const worker = this.ensureWorker()
     const id = this.nextId++
-    const timeout = this.usedOnce ? CALL_TIMEOUT_MS : FIRST_CALL_TIMEOUT_MS
-    this.usedOnce = true
+    const timeout = this.workerWarmedUp ? CALL_TIMEOUT_MS : FIRST_CALL_TIMEOUT_MS
+    this.workerWarmedUp = true
 
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -71,6 +79,11 @@ export class ScannerClient {
     })
   }
 
+  /**
+   * `bitmap` se transfiere al worker (segundo argumento de `postMessage`):
+   * queda neutralizado en cuanto esta función retorna, el llamador no puede
+   * volver a dibujarlo ni pasarlo a otro lado después.
+   */
   async detect(bitmap: ImageBitmap): Promise<Corners | null> {
     const res = await this.send<Extract<WorkerResponse, { op: "detect" }>>(
       { op: "detect", bitmap },
@@ -79,6 +92,7 @@ export class ScannerClient {
     return res.corners
   }
 
+  /** `bitmap` se transfiere al worker igual que en `detect()` — ver ahí. */
   async warp(bitmap: ImageBitmap, corners: Corners, mode: ScanMode): Promise<ImageBitmap> {
     const res = await this.send<Extract<WorkerResponse, { op: "warp" }>>(
       { op: "warp", bitmap, corners, mode },
@@ -102,7 +116,10 @@ export class ScannerClient {
   terminate(): void {
     this.worker?.terminate()
     this.worker = null
-    for (const [, entry] of this.pending) clearTimeout(entry.timer)
+    for (const [, entry] of this.pending) {
+      clearTimeout(entry.timer)
+      entry.reject(new Error("Scanner terminado"))
+    }
     this.pending.clear()
   }
 }
