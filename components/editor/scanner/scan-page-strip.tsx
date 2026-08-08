@@ -25,7 +25,9 @@ export function ScanPageStrip({ pages, onRemove }: ScanPageStripProps) {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1">
       {pages.map((page, i) => (
-        <div key={page.id} className="relative flex-shrink-0">
+        // El padding superior y derecho deja lugar para el boton de borrar, que
+        // sobresale de la miniatura y necesita un area tocable decente.
+        <div key={page.id} className="relative flex-shrink-0 pt-2 pr-2">
           <div className="w-[60px] h-[84px] rounded border border-border overflow-hidden bg-muted">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -41,10 +43,11 @@ export function ScanPageStrip({ pages, onRemove }: ScanPageStripProps) {
           <Button
             variant="destructive"
             size="icon"
-            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full p-0"
+            aria-label={`Borrar página ${i + 1}`}
+            className="absolute top-0 right-0 h-7 w-7 rounded-full p-0 shadow-sm"
             onClick={() => onRemove(page.id)}
           >
-            <X className="h-2.5 w-2.5" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
       ))}

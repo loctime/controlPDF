@@ -550,6 +550,15 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
                   Guardar
                 </Button>
               </div>
+              <Button
+                variant="ghost"
+                onClick={discardCapture}
+                disabled={restyling}
+                className="w-full text-muted-foreground"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Descartar esta foto
+              </Button>
             </div>
           )}
 
