@@ -34,7 +34,10 @@ Editor de PDF visual que corre **100% en el navegador**. Sin login, sin subir ar
 - **Firmar** — dibujá, subí imagen o tipeá una firma; arrastrala sobre la página.
 
 ### Escanear
-- Capturá documentos físicos con la cámara y agregalos al editor como páginas.
+- Sacá una foto del documento con la cámara del celular y ControlPDF detecta los bordes, endereza la perspectiva y limpia la iluminación.
+- Tres modos: **Documento** (papel blanco parejo conservando color), **Blanco y negro** (binarizado, archivo chico) y **Original** (solo endereza).
+- Multipágina: sumá todas las páginas que quieras y salen como un solo PDF.
+- El procesamiento corre en un Web Worker con OpenCV WASM, en tu dispositivo.
 
 ## Stack
 
@@ -43,6 +46,7 @@ Editor de PDF visual que corre **100% en el navegador**. Sin login, sin subir ar
 - **@cantoo/pdf-lib** — manipulación de PDF y encriptación
 - **pdfjs-dist** — render de páginas
 - **tesseract.js** — OCR (lazy)
+- **@techstark/opencv-js** — detección de bordes y enderezado del scanner (lazy)
 - **@dnd-kit** — drag & drop de páginas
 - **jszip** — exportación multi-archivo (lazy)
 
