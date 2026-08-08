@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import type { Corners, Point } from "@/lib/scanner/types"
+import { useEffect, useRef, useState } from "react"
+import { toImage, toScreen } from "@/lib/scanner/coords"
+import type { Corners } from "@/lib/scanner/types"
 
 const HANDLE_RADIUS = 14
 const LOUPE_SIZE = 96
@@ -27,14 +28,34 @@ interface CornerEditorProps {
 /**
  * Muestra la foto con cuatro manijas arrastrables. Las coordenadas de las
  * esquinas siempre están en el espacio de la imagen original; la conversión
- * a pantalla se hace al dibujar.
+ * a pantalla se hace al dibujar (ver `lib/scanner/coords.ts`).
  */
 export function CornerEditor({ imageUrl, corners, onChange }: CornerEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
   const [box, setBox] = useState<{ w: number; h: number }>({ w: 0, h: 0 })
-  const [dragging, setDragging] = useState<number | null>(null)
+  /**
+   * pointerId -> índice de esquina. Un Map (no un único índice global) es lo
+   * que permite que dos dedos arrastren dos esquinas distintas a la vez sin
+   * pisarse entre sí.
+   */
+  const dragPointers = useRef<Map<number, number>>(new Map())
+  /** Qué esquina muestra la lupa. Estado aparte porque afecta al render. */
+  const [loupeIndex, setLoupeIndex] = useState<number | null>(null)
+  /**
+   * Última versión conocida de `corners`, actualizada de forma síncrona por
+   * nuestros propios handlers (no solo por la prop). Con dos dedos arrastrando
+   * dos esquinas a la vez, ambos `pointermove` llegan en el mismo tick, antes
+   * de que React vuelva a renderizar con la prop actualizada — si ambos
+   * handlers leyeran `corners` (la prop, ya desactualizada para el segundo),
+   * el segundo `onChange` pisaría por completo el cambio del primero. Este
+   * ref es lo que hace que los dos cambios se compongan en vez de perderse.
+   */
+  const cornersRef = useRef<Corners>(corners)
+  useEffect(() => {
+    cornersRef.current = corners
+  }, [corners])
 
   // Medir el tamaño renderizado de la imagen para mapear coordenadas.
   useEffect(() => {
@@ -57,39 +78,31 @@ export function CornerEditor({ imageUrl, corners, onChange }: CornerEditorProps)
     }
   }, [imageUrl])
 
-  const toScreen = useCallback(
-    (p: Point): Point => {
-      if (!natural || box.w === 0) return { x: 0, y: 0 }
-      return { x: (p.x / natural.w) * box.w, y: (p.y / natural.h) * box.h }
-    },
-    [natural, box],
-  )
-
-  const toImage = useCallback(
-    (clientX: number, clientY: number): Point => {
-      const el = imgRef.current
-      if (!el || !natural) return { x: 0, y: 0 }
-      const rect = el.getBoundingClientRect()
-      const sx = Math.min(Math.max(clientX - rect.left, 0), rect.width)
-      const sy = Math.min(Math.max(clientY - rect.top, 0), rect.height)
-      return {
-        x: Math.round((sx / rect.width) * natural.w),
-        y: Math.round((sy / rect.height) * natural.h),
-      }
-    },
-    [natural],
-  )
-
   const handlePointerDown = (index: number) => (event: React.PointerEvent) => {
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
-    setDragging(index)
+    dragPointers.current.set(event.pointerId, index)
+    // El último dedo que empieza a arrastrar es el que se ve en la lupa.
+    setLoupeIndex(index)
   }
 
   const handlePointerMove = (index: number) => (event: React.PointerEvent) => {
-    if (dragging !== index) return
-    const next = [...corners] as Corners
-    next[index] = toImage(event.clientX, event.clientY)
+    // Este chequeo no es redundante: sin él, un simple hover del mouse (sin
+    // click) sobre la manija también dispara pointermove y arrastraría la
+    // esquina. Usar un Map por pointerId en vez de un único estado
+    // `dragging` global es lo que además permite que dos dedos arrastren
+    // dos esquinas al mismo tiempo sin que uno pise el estado del otro.
+    if (dragPointers.current.get(event.pointerId) !== index) return
+    if (!natural) return
+    const el = imgRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    // Partir de cornersRef, no de la prop `corners`: ver el comentario en su
+    // declaración. Esto es lo que permite que dos manijas arrastradas a la
+    // vez terminen compuestas en vez de que una se pise con la otra.
+    const next = [...cornersRef.current] as Corners
+    next[index] = toImage(event.clientX, event.clientY, natural, rect)
+    cornersRef.current = next
     onChange(next)
   }
 
@@ -99,12 +112,18 @@ export function CornerEditor({ imageUrl, corners, onChange }: CornerEditorProps)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
-    setDragging(null)
+    const endedIndex = dragPointers.current.get(event.pointerId)
+    dragPointers.current.delete(event.pointerId)
+    setLoupeIndex((current) => {
+      if (current !== endedIndex) return current // la lupa no correspondía a este dedo
+      const remaining = [...dragPointers.current.values()]
+      return remaining.length > 0 ? remaining[remaining.length - 1] : null
+    })
   }
 
   // Ajuste fino por teclado: las flechas mueven la esquina enfocada en el
-  // espacio de la imagen original. Sin esto el rol "slider" quedaría vacío
-  // de contenido para quien navega sin mouse.
+  // espacio de la imagen original. Sin esto el rol "botón" quedaría sin
+  // contenido para quien navega sin mouse.
   const handleKeyDown = (index: number) => (event: React.KeyboardEvent) => {
     if (!natural) return
     const step = event.shiftKey ? KEY_STEP_LARGE : KEY_STEP
@@ -127,16 +146,19 @@ export function CornerEditor({ imageUrl, corners, onChange }: CornerEditorProps)
         return
     }
     event.preventDefault()
-    const current = corners[index]
-    const next = [...corners] as Corners
+    const current = cornersRef.current[index]
+    const next = [...cornersRef.current] as Corners
     next[index] = {
       x: Math.min(Math.max(current.x + dx, 0), natural.w),
       y: Math.min(Math.max(current.y + dy, 0), natural.h),
     }
+    cornersRef.current = next
     onChange(next)
   }
 
-  const screenCorners = corners.map(toScreen)
+  const screenCorners = natural
+    ? corners.map((p) => toScreen(p, natural, box))
+    : corners.map(() => ({ x: 0, y: 0 }))
   const polygon = screenCorners.map((p) => `${p.x},${p.y}`).join(" ")
 
   return (
@@ -190,18 +212,18 @@ export function CornerEditor({ imageUrl, corners, onChange }: CornerEditorProps)
           ))}
 
           {/* Lupa: se posiciona en la esquina opuesta para no taparse con el dedo. */}
-          {dragging !== null && (
+          {loupeIndex !== null && (
             <div
               className="absolute rounded-full border-2 border-sky-400 overflow-hidden shadow-lg pointer-events-none"
               style={{
                 width: LOUPE_SIZE,
                 height: LOUPE_SIZE,
-                left: screenCorners[dragging].x > box.w / 2 ? 8 : box.w - LOUPE_SIZE - 8,
-                top: screenCorners[dragging].y > box.h / 2 ? 8 : box.h - LOUPE_SIZE - 8,
+                left: screenCorners[loupeIndex].x > box.w / 2 ? 8 : box.w - LOUPE_SIZE - 8,
+                top: screenCorners[loupeIndex].y > box.h / 2 ? 8 : box.h - LOUPE_SIZE - 8,
                 backgroundImage: `url(${imageUrl})`,
                 backgroundRepeat: "no-repeat",
                 backgroundSize: `${box.w * LOUPE_ZOOM}px ${box.h * LOUPE_ZOOM}px`,
-                backgroundPosition: `${LOUPE_SIZE / 2 - screenCorners[dragging].x * LOUPE_ZOOM}px ${LOUPE_SIZE / 2 - screenCorners[dragging].y * LOUPE_ZOOM}px`,
+                backgroundPosition: `${LOUPE_SIZE / 2 - screenCorners[loupeIndex].x * LOUPE_ZOOM}px ${LOUPE_SIZE / 2 - screenCorners[loupeIndex].y * LOUPE_ZOOM}px`,
               }}
             >
               <div className="absolute left-1/2 top-1/2 w-4 h-px -translate-x-1/2 bg-sky-400" />
