@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prebuild": "node scripts/copy-opencv.js",
-    "predev": "node scripts/copy-opencv.js",
+    "prebuild": "node scripts/copy-opencv.js && node scripts/copy-model.js",
+    "predev": "node scripts/copy-opencv.js && node scripts/copy-model.js",
     "build": "next build --webpack",
     "dev": "next dev --webpack",
     "lint": "eslint .",
     "start": "next start",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postbuild": "node scripts/copy-ml-chunks.js"
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.6.5",
@@ -65,6 +66,8 @@
     "react-hook-form": "^7.60.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.4",
+    "scanic": "^1.5.1",
+    "scanic-ml": "^0.2.0",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",

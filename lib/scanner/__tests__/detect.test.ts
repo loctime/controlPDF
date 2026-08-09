@@ -39,24 +39,33 @@ describe("defaultCorners", () => {
   })
 })
 
+/**
+ * Estos tests corren con `useModel: false` a propósito: ejercitan la cadena de
+ * respaldo con OpenCV, no el modelo neuronal. Son la verificación de que la red
+ * de seguridad funciona — sin ellos, un respaldo roto quedaría escondido detrás
+ * del modelo hasta el día que un usuario se quede sin conexión.
+ *
+ * El modelo no se puede probar acá: necesita ImageData y WASM del navegador,
+ * que en Node no existen. Se verifica end-to-end en el navegador.
+ */
 describe("detectCorners", () => {
   it("encuentra un documento en perspectiva dentro del 3%", async () => {
     const { image, corners } = makeDocumentPhoto({ text: true })
-    const found = await detectCorners(image)
+    const found = await detectCorners(image, { useModel: false })
     expect(found).not.toBeNull()
     expect(closeEnough(found!, corners)).toBe(true)
   })
 
   it("lo encuentra igual con iluminación despareja", async () => {
     const { image, corners } = makeDocumentPhoto({ shadeX: 90, shadeY: 40, text: true })
-    const found = await detectCorners(image)
+    const found = await detectCorners(image, { useModel: false })
     expect(found).not.toBeNull()
     expect(closeEnough(found!, corners)).toBe(true)
   })
 
   it("devuelve null si no hay documento", async () => {
     const { image } = makeDocumentPhoto({ paper: false })
-    expect(await detectCorners(image)).toBeNull()
+    expect(await detectCorners(image, { useModel: false })).toBeNull()
   })
 
   it("descarta un cuadrilátero demasiado chico", async () => {
@@ -68,13 +77,69 @@ describe("detectCorners", () => {
         { x: 500, y: 500 },
       ] as Corners,
     })
-    expect(await detectCorners(image)).toBeNull()
+    expect(await detectCorners(image, { useModel: false })).toBeNull()
   })
 
   it("devuelve las esquinas en orden tl, tr, br, bl", async () => {
     const { image } = makeDocumentPhoto()
-    const c = (await detectCorners(image))!
+    const c = (await detectCorners(image, { useModel: false }))!
     expect(c[0].x).toBeLessThan(c[1].x) // tl a la izquierda de tr
     expect(c[0].y).toBeLessThan(c[3].y) // tl arriba de bl
+  })
+})
+
+describe("orderCorners bajo rotación", () => {
+  const DOC: Corners = [
+    { x: 170, y: 150 },
+    { x: 740, y: 210 },
+    { x: 700, y: 1030 },
+    { x: 130, y: 970 },
+  ]
+
+  function rotar(pts: Corners, grados: number): Corners {
+    const a = (grados * Math.PI) / 180
+    const cx = 450
+    const cy = 600
+    return pts.map((p) => ({
+      x: Math.round(cx + (p.x - cx) * Math.cos(a) - (p.y - cy) * Math.sin(a)),
+      y: Math.round(cy + (p.x - cx) * Math.sin(a) + (p.y - cy) * Math.cos(a)),
+    })) as Corners
+  }
+
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y)
+
+  // El método anterior (sumas y diferencias de coordenadas) repetía esquinas a
+  // partir de unos 35 grados, y el enderezado salía degenerado.
+  it("nunca devuelve esquinas repetidas, a ningún ángulo", () => {
+    for (let grados = 0; grados <= 350; grados += 10) {
+      const ordenadas = orderCorners(rotar(DOC, grados))
+      const distintas = new Set(ordenadas.map((p) => `${p.x},${p.y}`))
+      expect(distintas.size, `a ${grados} grados`).toBe(4)
+    }
+  })
+
+  it("mantiene la página vertical hasta los 40 grados de inclinación", () => {
+    for (const grados of [0, 10, 20, 30, 40]) {
+      const [tl, tr, br, bl] = orderCorners(rotar(DOC, grados))
+      const ancho = Math.max(dist(tl, tr), dist(bl, br))
+      const alto = Math.max(dist(tl, bl), dist(tr, br))
+      expect(alto, `a ${grados} grados salió apaisada`).toBeGreaterThan(ancho)
+    }
+  })
+
+  it("sigue ordenando bien cuatro puntos desordenados", () => {
+    const desordenados = [
+      { x: 960, y: 790 },
+      { x: 180, y: 120 },
+      { x: 240, y: 700 },
+      { x: 1010, y: 210 },
+    ]
+    expect(orderCorners(desordenados)).toEqual([
+      { x: 180, y: 120 },
+      { x: 1010, y: 210 },
+      { x: 960, y: 790 },
+      { x: 240, y: 700 },
+    ])
   })
 })

@@ -121,7 +121,7 @@ Con el modelo esto deja de importar en el camino principal, porque devuelve las 
 
 ## 5. Costo
 
-Hoy la primera detección descarga 13 MB de OpenCV. Con el cambio descarga **15 MB**: los mismos 13 más 2 del modelo. OpenCV sigue haciendo falta para el enderezado y los tres modos de mejora.
+Hoy la primera detección descarga 13 MB de OpenCV. Con el cambio descarga **16,4 MB**: los mismos 13 más 3,4 del modelo (1,9 MB el modelo y 1,5 MB el runtime de ONNX recortado). OpenCV sigue haciendo falta para el enderezado y los tres modos de mejora.
 
 Ambas cargas son perezosas — solo ocurren cuando el usuario toca "Escanear" — y quedan cacheadas.
 

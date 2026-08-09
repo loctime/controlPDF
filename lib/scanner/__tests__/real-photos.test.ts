@@ -54,7 +54,7 @@ describe.skipIf(!hasPhotos)("fotos reales", () => {
         continue
       }
       const img = decode(file)
-      const found = await detectCorners(img)
+      const found = await detectCorners(img, { useModel: false })
 
       if (entry.corners === null) {
         if (found === null) hits++

@@ -1,6 +1,12 @@
-/** Imagen cruda en RGBA, compatible en forma con ImageData. */
+/**
+ * Imagen cruda en RGBA, compatible en forma con ImageData.
+ *
+ * El buffer se declara como `ArrayBuffer` y no como el `ArrayBufferLike` por
+ * defecto porque el constructor de `ImageData` rechaza `SharedArrayBuffer`.
+ * Dejarlo genérico obliga a castear en cada lugar donde se arma un ImageData.
+ */
 export interface RawImage {
-  data: Uint8ClampedArray
+  data: Uint8ClampedArray<ArrayBuffer>
   width: number
   height: number
 }
