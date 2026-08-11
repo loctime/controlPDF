@@ -2,10 +2,35 @@
 import { detectCorners } from "./detect"
 import { warpToRect } from "./warp"
 import { stylize } from "./stylize"
+import { detectOrientation, rotateQuarterTurns } from "./orientation"
 import type { RawImage, WorkerRequest, WorkerResponse } from "./types"
 
-/** Warp de la página en confirmación. Se reusa al cambiar de modo. */
+/** Warp de la página en confirmación. Se reusa al cambiar de modo y al girar. */
 let cachedWarp: RawImage | null = null
+
+/**
+ * Pone la página con el texto para arriba.
+ *
+ * El enderezado deja la hoja rectangular pero orientada como estaba en la
+ * foto: si el papel estaba acostado sobre la mesa, la página sale acostada.
+ * Geométricamente no hay nada que corregir —un rectángulo girado es el mismo
+ * rectángulo— así que la única pista es cómo corre la tinta.
+ *
+ * Es best-effort por definición: si no se puede decidir, la página queda como
+ * salió y el botón de girar lo arregla en un toque.
+ */
+async function autoUpright(page: RawImage): Promise<RawImage> {
+  try {
+    const { turns } = await detectOrientation(page)
+    return turns === 0 ? page : rotateQuarterTurns(page, turns)
+  } catch (err) {
+    console.warn(
+      "[scanner] no se pudo deducir la orientación:",
+      err instanceof Error ? err.message : err,
+    )
+    return page
+  }
+}
 
 function bitmapToRaw(bitmap: ImageBitmap): RawImage {
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
@@ -42,10 +67,20 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case "warp": {
         const raw = bitmapToRaw(req.bitmap)
         req.bitmap.close()
-        cachedWarp = await warpToRect(raw, req.corners)
+        cachedWarp = await autoUpright(await warpToRect(raw, req.corners))
         const styled = await stylize(cachedWarp, req.mode)
         const bitmap = rawToBitmap(styled)
         reply({ id: req.id, ok: true, op: "warp", bitmap }, [bitmap])
+        break
+      }
+      case "rotate": {
+        if (!cachedWarp) throw new Error("No hay página en edición")
+        // Se gira el enderezado cacheado y no la vista previa: así el giro
+        // sobrevive a un cambio de modo, que se recalcula desde acá.
+        cachedWarp = rotateQuarterTurns(cachedWarp, 1)
+        const styled = await stylize(cachedWarp, req.mode)
+        const bitmap = rawToBitmap(styled)
+        reply({ id: req.id, ok: true, op: "rotate", bitmap }, [bitmap])
         break
       }
       case "restyle": {

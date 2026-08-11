@@ -101,6 +101,15 @@ export class ScannerClient {
     return res.bitmap
   }
 
+  /** Gira la página 90° en sentido horario y devuelve la vista previa nueva. */
+  async rotate(mode: ScanMode): Promise<ImageBitmap> {
+    const res = await this.send<Extract<WorkerResponse, { op: "rotate" }>>({
+      op: "rotate",
+      mode,
+    })
+    return res.bitmap
+  }
+
   async restyle(mode: ScanMode): Promise<ImageBitmap> {
     const res = await this.send<Extract<WorkerResponse, { op: "restyle" }>>({
       op: "restyle",

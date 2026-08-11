@@ -36,6 +36,7 @@ Editor de PDF visual que corre **100% en el navegador**. Sin login, sin subir ar
 ### Escanear
 - Sacá una foto del documento con la cámara del celular y ControlPDF detecta los bordes, endereza la perspectiva y limpia la iluminación.
 - Tres modos: **Documento** (papel blanco parejo conservando color), **Blanco y negro** (binarizado, archivo chico) y **Original** (solo endereza).
+- Si sacaste la foto con la hoja acostada o al revés, la página se gira sola para que el texto quede legible. Cuando no alcanza, el botón de girar lo resuelve en un toque.
 - Multipágina: sumá todas las páginas que quieras y salen como un solo PDF.
 - El procesamiento corre en un Web Worker con OpenCV WASM, en tu dispositivo.
 

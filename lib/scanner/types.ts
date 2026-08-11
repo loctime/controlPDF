@@ -25,11 +25,13 @@ export type WorkerRequest =
   | { id: number; op: "detect"; bitmap: ImageBitmap }
   | { id: number; op: "warp"; bitmap: ImageBitmap; corners: Corners; mode: ScanMode }
   | { id: number; op: "restyle"; mode: ScanMode }
+  | { id: number; op: "rotate"; mode: ScanMode }
   | { id: number; op: "release" }
 
 export type WorkerResponse =
   | { id: number; ok: true; op: "detect"; corners: Corners | null }
   | { id: number; ok: true; op: "warp"; bitmap: ImageBitmap }
   | { id: number; ok: true; op: "restyle"; bitmap: ImageBitmap }
+  | { id: number; ok: true; op: "rotate"; bitmap: ImageBitmap }
   | { id: number; ok: true; op: "release" }
   | { id: number; ok: false; error: string }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Camera, Loader2, Check, X } from "lucide-react"
+import { Camera, Loader2, Check, X, RotateCw } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -145,8 +145,12 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
   const [mode, setMode] = useState<ScanMode>("document")
   /** true si OpenCV no está disponible: habilita guardar la foto sin procesar. */
   const [degraded, setDegraded] = useState(false)
-  /** true mientras `restyle()` está en vuelo: bloquea aceptar la página. */
-  const [restyling, setRestyling] = useState(false)
+  /**
+   * true mientras se está recalculando la vista previa (cambio de modo o
+   * giro): bloquea aceptar la página, porque `preview.blob` todavía es el
+   * anterior y guardarlo no coincidiría con lo que se ve.
+   */
+  const [previewBusy, setPreviewBusy] = useState(false)
 
   const getClient = useCallback(() => {
     if (!clientRef.current) clientRef.current = new ScannerClient()
@@ -346,7 +350,7 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
       }
       const previous = mode
       setMode(next)
-      setRestyling(true)
+      setPreviewBusy(true)
       let result: ImageBitmap | null = null
       try {
         result = await getClient().restyle(next)
@@ -364,21 +368,47 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
         toast.error("No se pudo cambiar el modo")
       } finally {
         result?.close()
-        setRestyling(false)
+        setPreviewBusy(false)
       }
     },
     [state, mode, getClient],
   )
 
+  /**
+   * Gira la página 90°. La detección automática de orientación resuelve el
+   * caso de la hoja acostada, pero no puede distinguir derecho de cabeza abajo
+   * en un documento sin una asimetría clara de renglones: esta es la salida.
+   */
+  const rotatePage = useCallback(async () => {
+    if (state !== "previewing") return
+    setPreviewBusy(true)
+    let result: ImageBitmap | null = null
+    try {
+      result = await getClient().rotate(mode)
+      const blob = await bitmapToBlob(result, JPEG_QUALITY)
+      if (!openRef.current) return
+      setPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url)
+        return { url: URL.createObjectURL(blob), blob }
+      })
+    } catch {
+      if (!openRef.current) return
+      toast.error("No se pudo girar la página")
+    } finally {
+      result?.close()
+      setPreviewBusy(false)
+    }
+  }, [state, mode, getClient])
+
   const savePage = useCallback(async (): Promise<boolean> => {
-    // Con un restyle en vuelo, preview.blob todavía es el de mode anterior:
-    // aceptar acá guardaría un modo distinto al que el toggle muestra.
-    if (!preview || restyling) return false
+    // Con un recálculo en vuelo, preview.blob todavía es el anterior: aceptar
+    // acá guardaría algo distinto de lo que la pantalla muestra.
+    if (!preview || previewBusy) return false
     await addPage(preview.blob)
     getClient().release()
     resetToIdle()
     return true
-  }, [preview, restyling, addPage, getClient, resetToIdle])
+  }, [preview, previewBusy, addPage, getClient, resetToIdle])
 
   /**
    * Guarda la página y vuelve a abrir la cámara, para encadenar hojas con un
@@ -516,10 +546,26 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
                 alt="Página procesada"
                 className="w-full h-auto rounded-lg"
               />
-              <ModeToggle value={mode} onChange={changeMode} disabled={restyling} />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <ModeToggle value={mode} onChange={changeMode} disabled={previewBusy} />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={rotatePage}
+                  disabled={previewBusy}
+                  aria-label="Girar 90 grados"
+                  title="Girar 90°"
+                  className="shrink-0"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+              </div>
               <Button
                 onClick={saveAndCaptureAgain}
-                disabled={restyling}
+                disabled={previewBusy}
                 className="w-full"
               >
                 <Camera className="h-4 w-4 mr-1" />
@@ -532,7 +578,7 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
                 <Button
                   variant="outline"
                   onClick={savePage}
-                  disabled={restyling}
+                  disabled={previewBusy}
                   className="flex-1"
                 >
                   <Check className="h-4 w-4 mr-1" />
@@ -542,7 +588,7 @@ export function ScanModal({ open, onOpenChange }: ScanModalProps) {
               <Button
                 variant="ghost"
                 onClick={discardCapture}
-                disabled={restyling}
+                disabled={previewBusy}
                 className="w-full text-muted-foreground"
               >
                 <X className="h-4 w-4 mr-1" />
