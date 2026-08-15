@@ -13,16 +13,20 @@ const BG_DOWNSCALE = 8
 const BW_BLOCK_DIVISOR = 20
 
 /**
- * Diámetro y sigmas del filtro bilateral que despareja el grano del fondo.
- * Elegidos por costo, no por calidad óptima: en 5 se mide la mitad de tiempo
- * que en 7 (269ms contra 525ms a 3000px, el tope de salida) con una limpieza
- * casi idéntica a ojo. El filtro bilateral, a diferencia de un blur común,
- * promedia solo entre píxeles de color parecido: el papel se despareja
- * porque sus variaciones son chicas, el texto se conserva nítido porque el
- * salto de color contra el papel es grande.
+ * Lado del filtro de mediana que despareja el grano del fondo.
+ *
+ * Antes iba un filtro bilateral: promedia solo entre píxeles de color
+ * parecido, así que el papel se dispersaba sin tocar el salto de color contra
+ * el texto. La mediana logra lo mismo por otro motivo — un salto grande y
+ * angosto como el borde de una letra no mueve la mediana de una ventana de
+ * 3×3, la gana el papel que la rodea — y sale más barata: medida en las dos
+ * fotos reales de esta conversación, entre 20% y 30% más rápida que el
+ * bilateral en el mismo paso, con el texto igual de nítido a ojo en las dos
+ * (recorte con zoom, letra chica de una tabla). El bilateral queda descartado
+ * y no solo bajado de parámetros: no hay tamaño de ventana bilateral que le
+ * gane en velocidad a la mediana con la misma nitidez.
  */
-const DENOISE_DIAMETER = 5
-const DENOISE_SIGMA_COLOR = 35
+const DENOISE_KERNEL = 3
 
 /**
  * Percentil de la imagen (ya despareja) que se toma como "blanco del papel".
@@ -115,9 +119,7 @@ function denoiseAndLiftWhites(cv: CV, rgb: any): any {
   const out = new cv.Mat()
 
   try {
-    cv.bilateralFilter(
-      rgb, denoised, DENOISE_DIAMETER, DENOISE_SIGMA_COLOR, DENOISE_DIAMETER, cv.BORDER_DEFAULT,
-    )
+    cv.medianBlur(rgb, denoised, DENOISE_KERNEL)
 
     cv.cvtColor(denoised, gray, cv.COLOR_RGB2GRAY)
     grayVec.push_back(gray)

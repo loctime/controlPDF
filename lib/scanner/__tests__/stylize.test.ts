@@ -138,8 +138,11 @@ describe("stylize", () => {
     const out = await stylize(doc, "document")
     const after = patchStd(out, 40, 40, 260, 160)
 
+    // La mediana despareja menos que el bilateral que tenía antes (65% del
+    // desvío contra 45%), a cambio de ser más barata: ver el comentario de
+    // DENOISE_KERNEL en stylize.ts.
     expect(before).toBeGreaterThan(5) // el ruido agregado es real
-    expect(after).toBeLessThan(before / 2) // y queda bastante más parejo
+    expect(after).toBeLessThan(before * 0.65) // y queda bastante más parejo
   })
 
   it("modo document conserva el texto oscuro con papel ruidoso", async () => {
